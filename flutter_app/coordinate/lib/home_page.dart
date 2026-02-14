@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'calendar_page.dart';
 import 'settings_page.dart';
+import 'camera_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -29,7 +30,12 @@ class _HomePageState extends State<HomePage> {
       body: _pages[_selectedIndex],
       floatingActionButton: _selectedIndex == 1
           ? FloatingActionButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CameraPage()),
+                );
+              },
               shape: const CircleBorder(),
               child: const Icon(Icons.camera_alt),
             )
