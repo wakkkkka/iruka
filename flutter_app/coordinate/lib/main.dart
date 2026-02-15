@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:camera/camera.dart'; // 1. 追加
-import 'login_page.dart';
-import 'home_page.dart';
+import 'screens/login_page.dart';
+import 'screens/home_page.dart';
 
 // 2. 利用可能なカメラのリストをグローバル（どこからでも呼べる場所）に定義
 late List<CameraDescription> cameras;
@@ -35,8 +35,8 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/login',
       routes: {
-        '/login': (context) => const LoginPage(),
-        '/home': (context) => const HomePage(),
+        '/login': (context) => LoginPage(),
+        '/home': (context) => HomePage(),
         // ここでカメラページをルートに追加することもできますが、
         // 遷移時に引数を渡すことが多いので今はそのままでOKです。
       },
