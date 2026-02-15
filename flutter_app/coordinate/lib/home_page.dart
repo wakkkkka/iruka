@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'calendar_page.dart';
 import 'settings_page.dart';
+import 'statistics_page.dart';
 import 'camera_page.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,6 +17,7 @@ class _HomePageState extends State<HomePage> {
   final List<Widget> _pages = [
     const CalendarPage(),
     Center(child: Text('クローゼット（ホーム）', style: TextStyle(fontSize: 24))),
+    const StatisticsPage(),
     const SettingsPage(),
   ];
 
@@ -42,6 +45,7 @@ class _HomePageState extends State<HomePage> {
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today),
@@ -50,6 +54,10 @@ class _HomePageState extends State<HomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'ホーム',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: '統計',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
