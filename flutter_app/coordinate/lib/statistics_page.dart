@@ -1,63 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-
-// ============================
-// 季節判定ヘルパー
-// ============================
-String getSeason(int month) {
-  if (month >= 3 && month <= 5) return "春";
-  if (month >= 6 && month <= 8) return "夏";
-  if (month >= 9 && month <= 11) return "秋";
-  return "冬";
-}
-
-// ============================
-// ダミーデータ（フェーズ2でAWSから取得に置き換え）
-// ============================
-/// 着用ログ 1件分
-class WearLog {
-  final String category; // 服のカテゴリ（Tシャツ, パーカー, etc.）
-  final String color; // 色
-  final DateTime date; // 着用日
-
-  const WearLog({
-    required this.category,
-    required this.color,
-    required this.date,
-  });
-}
-
-/// フェーズ1用のダミー着用ログ
-final List<WearLog> dummyWearLogs = [
-  // --- 冬（12〜2月） ---
-  WearLog(category: 'コート', color: '黒', date: DateTime(2025, 12, 3)),
-  WearLog(category: 'ニット', color: '白', date: DateTime(2025, 12, 10)),
-  WearLog(category: 'コート', color: '黒', date: DateTime(2025, 12, 20)),
-  WearLog(category: 'パーカー', color: 'グレー', date: DateTime(2026, 1, 5)),
-  WearLog(category: 'ニット', color: 'ベージュ', date: DateTime(2026, 1, 12)),
-  WearLog(category: 'コート', color: '黒', date: DateTime(2026, 1, 25)),
-  WearLog(category: 'パーカー', color: '黒', date: DateTime(2026, 2, 1)),
-  WearLog(category: 'ニット', color: '白', date: DateTime(2026, 2, 8)),
-  // --- 春（3〜5月） ---
-  WearLog(category: 'Tシャツ', color: '白', date: DateTime(2025, 4, 10)),
-  WearLog(category: 'シャツ', color: '青', date: DateTime(2025, 4, 20)),
-  WearLog(category: 'パーカー', color: 'グレー', date: DateTime(2025, 5, 3)),
-  WearLog(category: 'シャツ', color: '白', date: DateTime(2025, 5, 15)),
-  WearLog(category: 'Tシャツ', color: '黒', date: DateTime(2025, 3, 22)),
-  // --- 夏（6〜8月） ---
-  WearLog(category: 'Tシャツ', color: '白', date: DateTime(2025, 6, 5)),
-  WearLog(category: 'Tシャツ', color: '黒', date: DateTime(2025, 7, 10)),
-  WearLog(category: 'Tシャツ', color: '白', date: DateTime(2025, 7, 20)),
-  WearLog(category: 'ショートパンツ', color: 'ベージュ', date: DateTime(2025, 8, 1)),
-  WearLog(category: 'Tシャツ', color: '青', date: DateTime(2025, 8, 15)),
-  WearLog(category: 'ショートパンツ', color: '黒', date: DateTime(2025, 8, 25)),
-  // --- 秋（9〜11月） ---
-  WearLog(category: 'シャツ', color: 'チェック', date: DateTime(2025, 9, 8)),
-  WearLog(category: 'パーカー', color: '黒', date: DateTime(2025, 10, 5)),
-  WearLog(category: 'ニット', color: 'グレー', date: DateTime(2025, 10, 20)),
-  WearLog(category: 'パーカー', color: 'グレー', date: DateTime(2025, 11, 3)),
-  WearLog(category: 'コート', color: '紺', date: DateTime(2025, 11, 25)),
-];
+import 'package:provider/provider.dart';
+import 'models/wear_log.dart';
+import 'providers/wear_log_provider.dart';
+import 'utils/statistics_helper.dart';
 
 // ============================
 // 統計ページ本体
@@ -67,10 +13,20 @@ class StatisticsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Provider から最新のログを取得（自動再描画）
+    final logs = context.watch<WearLogProvider>().logs;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('統計'),
         centerTitle: true,
+      ),
+      // ====== テスト用 FAB（フェーズ2 で削除）======
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showTestAddDialog(context),
+        icon: const Icon(Icons.add),
+        label: const Text('テスト追加'),
+        backgroundColor: Colors.deepPurple,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -78,8 +34,17 @@ class StatisticsPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ---------- サマリーカード ----------
-            _buildSummaryCards(),
+            _buildSummaryCards(logs),
             const SizedBox(height: 24),
+
+            // ---------- よく着る服ランキング ----------
+            const Text(
+              '👑 よく着る服 ベスト3',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            _buildRankingSection(logs),
+            const SizedBox(height: 32),
 
             // ---------- カテゴリ別 円グラフ ----------
             const Text(
@@ -89,10 +54,10 @@ class StatisticsPage extends StatelessWidget {
             const SizedBox(height: 12),
             SizedBox(
               height: 240,
-              child: _buildPieChart(),
+              child: _buildPieChart(logs),
             ),
             const SizedBox(height: 8),
-            _buildPieLegend(),
+            _buildPieLegend(logs),
             const SizedBox(height: 32),
 
             // ---------- 季節別 棒グラフ ----------
@@ -103,7 +68,7 @@ class StatisticsPage extends StatelessWidget {
             const SizedBox(height: 12),
             SizedBox(
               height: 240,
-              child: _buildBarChart(),
+              child: _buildBarChart(logs),
             ),
             const SizedBox(height: 32),
 
@@ -115,7 +80,7 @@ class StatisticsPage extends StatelessWidget {
             const SizedBox(height: 12),
             SizedBox(
               height: 240,
-              child: _buildColorBarChart(),
+              child: _buildColorBarChart(logs),
             ),
             const SizedBox(height: 32),
           ],
@@ -127,10 +92,9 @@ class StatisticsPage extends StatelessWidget {
   // ============================
   // サマリーカード
   // ============================
-  Widget _buildSummaryCards() {
-    final totalWears = dummyWearLogs.length;
-    final categories =
-        dummyWearLogs.map((e) => e.category).toSet().length;
+  Widget _buildSummaryCards(List<WearLog> logs) {
+    final totalWears = logs.length;
+    final categories = countUniqueCategories(logs);
     final currentSeason = getSeason(DateTime.now().month);
 
     return Row(
@@ -172,18 +136,109 @@ class StatisticsPage extends StatelessWidget {
   }
 
   // ============================
-  // カテゴリ別 円グラフ
+  // よく着る服ランキング（ベスト3）
   // ============================
-  /// カテゴリ → カウントの Map を作成
-  Map<String, int> _categoryCount() {
-    final map = <String, int>{};
-    for (final log in dummyWearLogs) {
-      map[log.category] = (map[log.category] ?? 0) + 1;
+  Widget _buildRankingSection(List<WearLog> logs) {
+    final ranking = calculateRanking(logs, topN: 3);
+
+    if (ranking.isEmpty) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: Text('まだ着用データがありません')),
+        ),
+      );
     }
-    return map;
+
+    return Column(
+      children: List.generate(ranking.length, (i) {
+        final item = ranking[i];
+        return _rankingTile(i + 1, item);
+      }),
+    );
   }
 
-  /// カテゴリごとの色
+  Widget _rankingTile(int rank, RankingItem item) {
+    // 順位に応じた色
+    final Color medalColor;
+    switch (rank) {
+      case 1:
+        medalColor = const Color(0xFFFFD700); // 金
+        break;
+      case 2:
+        medalColor = const Color(0xFFC0C0C0); // 銀
+        break;
+      case 3:
+        medalColor = const Color(0xFFCD7F32); // 銅
+        break;
+      default:
+        medalColor = Colors.grey;
+    }
+
+    // カテゴリに応じたアイコン
+    final IconData categoryIcon;
+    switch (item.category) {
+      case 'Tシャツ':
+        categoryIcon = Icons.dry_cleaning;
+        break;
+      case 'パーカー':
+        categoryIcon = Icons.checkroom;
+        break;
+      default:
+        categoryIcon = Icons.checkroom;
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.emoji_events, color: medalColor, size: 28),
+            const SizedBox(width: 8),
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: item.imagePath != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(item.imagePath!, fit: BoxFit.cover),
+                    )
+                  : Icon(categoryIcon, size: 28, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        title: Text(
+          item.itemName,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text('${item.category} / ${item.color}'),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.deepPurple.shade50,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Text(
+            '${item.count}回',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.deepPurple.shade700,
+              fontSize: 16,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================
+  // カテゴリ別 円グラフ
+  // ============================
   static const _categoryColors = <String, Color>{
     'Tシャツ': Color(0xFFFF6384),
     'シャツ': Color(0xFF36A2EB),
@@ -197,9 +252,13 @@ class StatisticsPage extends StatelessWidget {
     return _categoryColors[cat] ?? Colors.grey;
   }
 
-  Widget _buildPieChart() {
-    final counts = _categoryCount();
+  Widget _buildPieChart(List<WearLog> logs) {
+    final counts = calculateCategoryCounts(logs);
     final total = counts.values.fold(0, (a, b) => a + b);
+
+    if (total == 0) {
+      return const Center(child: Text('データなし'));
+    }
 
     final sections = counts.entries.map((e) {
       final pct = (e.value / total * 100).toStringAsFixed(1);
@@ -222,8 +281,8 @@ class StatisticsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPieLegend() {
-    final counts = _categoryCount();
+  Widget _buildPieLegend(List<WearLog> logs) {
+    final counts = calculateCategoryCounts(logs);
     return Wrap(
       spacing: 16,
       runSpacing: 8,
@@ -239,7 +298,8 @@ class StatisticsPage extends StatelessWidget {
                   shape: BoxShape.circle,
                 )),
             const SizedBox(width: 4),
-            Text('${e.key}（${e.value}回）', style: const TextStyle(fontSize: 13)),
+            Text('${e.key}（${e.value}回）',
+                style: const TextStyle(fontSize: 13)),
           ],
         );
       }).toList(),
@@ -249,15 +309,6 @@ class StatisticsPage extends StatelessWidget {
   // ============================
   // 季節別 棒グラフ
   // ============================
-  Map<String, int> _seasonCount() {
-    final map = <String, int>{'春': 0, '夏': 0, '秋': 0, '冬': 0};
-    for (final log in dummyWearLogs) {
-      final s = getSeason(log.date.month);
-      map[s] = (map[s] ?? 0) + 1;
-    }
-    return map;
-  }
-
   static const _seasonColors = {
     '春': Color(0xFFFF9FCE),
     '夏': Color(0xFF36A2EB),
@@ -265,8 +316,8 @@ class StatisticsPage extends StatelessWidget {
     '冬': Color(0xFF9966FF),
   };
 
-  Widget _buildBarChart() {
-    final counts = _seasonCount();
+  Widget _buildBarChart(List<WearLog> logs) {
+    final counts = calculateSeasonCounts(logs);
     final seasons = ['春', '夏', '秋', '冬'];
 
     return BarChart(
@@ -331,19 +382,10 @@ class StatisticsPage extends StatelessWidget {
   // ============================
   // カラー別 棒グラフ
   // ============================
-  Map<String, int> _colorCount() {
-    final map = <String, int>{};
-    for (final log in dummyWearLogs) {
-      map[log.color] = (map[log.color] ?? 0) + 1;
-    }
-    return map;
-  }
-
-  Widget _buildColorBarChart() {
-    final counts = _colorCount();
+  Widget _buildColorBarChart(List<WearLog> logs) {
+    final counts = calculateColorCounts(logs);
     final colors = counts.keys.toList();
 
-    // 色名 → 表示色
     const colorMap = <String, Color>{
       '白': Color(0xFFBDBDBD),
       '黒': Color(0xFF424242),
@@ -409,6 +451,83 @@ class StatisticsPage extends StatelessWidget {
           );
         }),
       ),
+    );
+  }
+
+  // ============================
+  // テスト用：着用ログ追加ダイアログ（フェーズ2 で削除）
+  // ============================
+  void _showTestAddDialog(BuildContext context) {
+    final categories = ['Tシャツ', 'シャツ', 'パーカー', 'ニット', 'コート', 'ショートパンツ'];
+    final colors = ['白', '黒', 'グレー', '青', 'ベージュ', '紺', 'チェック'];
+
+    String selectedCategory = categories.first;
+    String selectedColor = colors.first;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('🧪 テスト：着用記録を追加'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedCategory,
+                    decoration: const InputDecoration(labelText: 'カテゴリ'),
+                    items: categories
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (v) {
+                      setDialogState(() => selectedCategory = v!);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedColor,
+                    decoration: const InputDecoration(labelText: 'カラー'),
+                    items: colors
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (v) {
+                      setDialogState(() => selectedColor = v!);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('キャンセル'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final provider = context.read<WearLogProvider>();
+                    provider.addLog(
+                      WearLog(
+                        id: provider.generateNextId(),
+                        category: selectedCategory,
+                        color: selectedColor,
+                        date: DateTime.now(),
+                        itemName: '$selectedCategory（$selectedColor）',
+                      ),
+                    );
+                    Navigator.pop(dialogContext);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('$selectedCategory（$selectedColor）を追加しました'),
+                      ),
+                    );
+                  },
+                  child: const Text('追加'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
