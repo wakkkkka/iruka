@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:camera/camera.dart'; // 1. 追加
 import 'login_page.dart';
 import 'home_page.dart';
@@ -16,6 +17,7 @@ Future<void> main() async {
   } on CameraException catch (e) {
     print('カメラの取得に失敗しました: ${e.description}');
   }
+
 
   runApp(const MyApp());
 }
