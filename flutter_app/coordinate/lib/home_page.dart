@@ -6,6 +6,7 @@ import 'screens/closet_screen.dart';
 import 'screens/registration_screen.dart';
 import 'models/clothing_item.dart';
 import 'data/mock_data.dart';
+import 'statistics_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -78,7 +79,12 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [const CalendarPage(), ClosetScreen(), const SettingsPage()];
+    final pages = [
+      const CalendarPage(),
+      ClosetScreen(),
+      const StatisticsPage(),
+      const SettingsPage(),
+    ];
     return Scaffold(
       body: pages[_selectedIndex],
       floatingActionButton: _selectedIndex == 1
@@ -90,12 +96,16 @@ class _HomePageState extends State<HomePage> {
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today),
             label: 'カレンダー',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'ホーム'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: '設定'),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'ホーム'),
+          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: '統計'),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: '設定'),
         ],
         currentIndex: _selectedIndex,
