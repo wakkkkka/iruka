@@ -147,7 +147,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     // カメラアイコン（元のFABと同じ位置・サイズ）
                     Positioned(
-                      bottom: 16,
+                      bottom: 35,
                       right: 16,
                       child: FloatingActionButton(
                         onPressed: _hideCameraMenu,
