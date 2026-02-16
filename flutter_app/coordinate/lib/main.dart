@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart'; // 1. 追加
 import 'screens/login_page.dart';
 import 'screens/home_page.dart';
+import 'repositories/wear_repository.dart';
 
 // 2. 利用可能なカメラのリストをグローバル（どこからでも呼べる場所）に定義
 late List<CameraDescription> cameras;
@@ -18,6 +19,18 @@ Future<void> main() async {
     print('カメラの取得に失敗しました: ${e.description}');
   }
 
+  // ===== 動作確認（後で消してOK） =====
+  final repo = WearRepository();
+  await repo.fetchAllData();
+  print('--- WearRepository 動作確認 ---');
+  print('ユーザー: ${repo.currentUser?.name}');
+  print('服の数: ${repo.items.length} 着');
+  print('ログの数: ${repo.logs.length} 件');
+  print('服一覧: ${repo.items.map((i) => i.itemName).join(", ")}');
+  print('今日のログ: ${repo.getLogsByDate(DateTime.now()).length} 件');
+  print('i001の服: ${repo.getItemById("i001")?.itemName}');
+  print('-------------------------------');
+  // ===== ここまで動作確認 =====
 
   runApp(const MyApp());
 }
