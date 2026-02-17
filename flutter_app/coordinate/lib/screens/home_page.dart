@@ -71,14 +71,21 @@ class _HomePageState extends State<HomePage> {
       children: [
         Scaffold(
           body: _pages[_selectedIndex],
-          floatingActionButton: _selectedIndex == 1
-              ? FloatingActionButton(
-                  onPressed: _showCameraMenu,
-                  shape: const CircleBorder(),
-                  child: const Icon(Icons.camera_alt),
-                )
-              : null,
-          floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
+            floatingActionButton: _selectedIndex == 1
+                ? SizedBox(
+                    width: 60.0,
+                    height: 60.0,
+                    child: FloatingActionButton(
+                      onPressed: _showCameraMenu,
+                      shape: const CircleBorder(),
+                      backgroundColor: Colors.white,
+                      elevation: 4,
+                      child: const Icon(Icons.camera_alt, size: 40.0, color: Colors.deepPurple),
+                    ),
+                  )
+                : null,
+          // 右下に寄せる
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
           bottomNavigationBar: BottomNavigationBar(
             type: BottomNavigationBarType.fixed,
             items: const [
@@ -105,61 +112,51 @@ class _HomePageState extends State<HomePage> {
         ),
         if (_showCameraOverlay)
           Positioned.fill(
-            child: GestureDetector(
-              onTap: _hideCameraMenu,
-              child: Container(
-                color: Colors.white.withValues(alpha: 0.85),
-                child: Stack(
+            child: Material(
+      color: Colors.transparent, // 背景は透明にする
+      child: GestureDetector(
+        onTap: _hideCameraMenu,
+        child: Container(
+          color: Colors.white.withValues(alpha: 0.85),
+          child: Stack(
+            children: [
+              Positioned(
+                bottom: 85 + 56,
+                right: 16,
+                child: Column(
                   children: [
-                    // 2つの丸いアイコン
-                    Positioned(
-                      bottom: 150,
-                      right: 32,
-                      child: Column(
-                        children: [
-                          _buildCircleMenuButton(
-                            icon: Icons.camera_front,
-                            label: '自撮り',
-                            onTap: () {
-                              _hideCameraMenu();
-                              // TODO: CameraPageに自撮りモードで遷移する処理を追加
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const CameraPage()),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          _buildCircleMenuButton(
-                            icon: Icons.add_a_photo,
-                            label: '新規登録',
-                            onTap: () {
-                              _hideCameraMenu();
-                              // TODO: CameraPageに新規登録モードで遷移する処理を追加
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const CameraPage()),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
+                    _buildCircleMenuButton(
+                      icon: Icons.camera_front,
+                      label: '自撮り',
+                      onTap: () {
+                        _hideCameraMenu();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const CameraPage()),
+                        );
+                      },
                     ),
-                    // カメラアイコン（元のFABと同じ位置・サイズ）
-                    Positioned(
-                      bottom: 35,
-                      right: 16,
-                      child: FloatingActionButton(
-                        onPressed: _hideCameraMenu,
-                        shape: const CircleBorder(),
-                        child: const Icon(Icons.camera_alt),
-                      ),
+                    const SizedBox(height: 16),
+                    _buildCircleMenuButton(
+                      icon: Icons.add_a_photo,
+                      label: '新規登録',
+                      onTap: () {
+                        _hideCameraMenu();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const CameraPage()),
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
+        ),
+      ),
+    ),
+  ),
       ],
     );
 
