@@ -1,0 +1,9 @@
+{
+  "function": {
+    "coordinateb126374f": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
+    }
+  }
+}
