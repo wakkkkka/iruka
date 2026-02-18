@@ -1,15 +1,23 @@
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import '../models/wear_item.dart';
 import '../models/wear_log.dart';
 import '../models/user.dart';
+import '../services/local_storage.dart';
+import '../services/api_client.dart';
 
 /// データの「仲介役」
 ///
 /// 画面（カレンダー、統計、ホーム等）はここからデータを取る。
-/// 画面は「データがダミーか AWS か」を知る必要がない。
+/// 画面は「データがローカルか AWS か」を知る必要がない。
 ///
-/// 【フェーズ1】ダミーデータを返す
-/// 【フェーズ2】fetchAllData() の中身を AWS API 呼び出しに差し替えるだけ！
+/// データの流れ:
+///   起動時  → ① ローカルから即読み込み → ② API から最新取得 → ③ ローカルも更新
+///   追加時  → ① メモリに即反映 → ② ローカルに保存 → ③ API に送信
+///   手動更新 → ① API から取得 → ② メモリ + ローカルを更新
 class WearRepository {
+  final LocalStorage _local = LocalStorage();
+  final ApiClient _api = ApiClient();
+
   // ============================
   // キャッシュ（アプリ内メモリに保存）
   // ============================
@@ -18,43 +26,131 @@ class WearRepository {
   User? _currentUser;
 
   // ============================
-  // 画面から使う getter
+  // 画面から使う getter（読み取り専用）
   // ============================
   List<WearItem> get items => List.unmodifiable(_items);
   List<WearLog> get logs => List.unmodifiable(_logs);
   User? get currentUser => _currentUser;
 
   // ============================
-  // 起動時に呼ぶ（データを全部読み込む）
+  // 起動時に呼ぶ（ローカル → API の順でデータを読み込む）
   // ============================
-  Future<void> fetchAllData() async {
-    _currentUser = _dummyUser;
-    _items = _dummyItems;
-    _logs = _dummyLogs;
+  Future<void> fetchAllData({String userId = 'u001'}) async {
+    // ① まずローカルから即座に読み込む（高速・オフラインでも動く）
+    _items = await _local.loadItems();
+    _logs = await _local.loadLogs();
+    _currentUser = await _local.loadUser();
 
-    // 【フェーズ2】ここを AWS API に差し替える
-    // _items = await ApiClient.getClothes();
-    // _logs = await ApiClient.getLogs();
+    if (kDebugMode) {
+      debugPrint('[Repo] ローカルから読み込み: 服${_items.length}着, ログ${_logs.length}件');
+    }
+
+    // ② ローカルが空 or 最新が欲しい場合は API から取得
+    await refreshFromApi(userId: userId);
+  }
+
+  // ============================
+  // API から最新データを取得してローカルも更新
+  // ============================
+  Future<void> refreshFromApi({String userId = 'u001'}) async {
+    try {
+      final apiItems = await _api.fetchItems(userId);
+      final apiLogs = await _api.fetchLogs(userId);
+      final apiUser = await _api.fetchCurrentUser(userId);
+
+      // メモリを更新
+      _items = apiItems;
+      _logs = apiLogs;
+      _currentUser = apiUser;
+
+      // ローカルにも保存（次回起動時に即表示できるように）
+      await _local.saveItems(_items);
+      await _local.saveLogs(_logs);
+      await _local.saveUser(apiUser);
+
+      if (kDebugMode) {
+        debugPrint('[Repo] API から取得＆ローカル保存完了: 服${_items.length}着, ログ${_logs.length}件');
+      }
+    } on Exception catch (e) {
+      // API エラー時はローカルのデータをそのまま使い続ける
+      if (kDebugMode) {
+        debugPrint('[Repo] API取得失敗（ローカルデータで続行）: $e');
+      }
+    }
   }
 
   // ============================
   // 服を追加する
   // ============================
   Future<void> addItem(WearItem item) async {
-    _items.add(item); // 画面に即反映（Optimistic UI）
+    _items.add(item); // ① 画面に即反映（Optimistic UI）
+    await _local.saveItems(_items); // ② ローカルに保存
 
-    // 【フェーズ2】裏で AWS に送信
-    // await ApiClient.postClothes(item);
+    try {
+      await _api.postItem(item); // ③ API に送信
+    } on Exception catch (e) {
+      if (kDebugMode) {
+        debugPrint('[Repo] 服の送信失敗: $e');
+      }
+    }
   }
 
   // ============================
   // 着用ログを追加する
   // ============================
   Future<void> addLog(WearLog log) async {
-    _logs.add(log); // 画面に即反映（Optimistic UI）
+    _logs.add(log); // ① 画面に即反映（Optimistic UI）
+    await _local.saveLogs(_logs); // ② ローカルに保存
 
-    // 【フェーズ2】裏で AWS に送信
-    // await ApiClient.postLog(log);
+    try {
+      await _api.postLog(log); // ③ API に送信
+    } on Exception catch (e) {
+      if (kDebugMode) {
+        debugPrint('[Repo] ログの送信失敗: $e');
+      }
+    }
+  }
+
+  // ============================
+  // 服を削除する
+  // ============================
+  Future<void> removeItem(String itemId) async {
+    _items.removeWhere((i) => i.id == itemId);
+    await _local.saveItems(_items);
+
+    try {
+      await _api.deleteItem(itemId);
+    } on Exception catch (e) {
+      if (kDebugMode) {
+        debugPrint('[Repo] 服の削除失敗: $e');
+      }
+    }
+  }
+
+  // ============================
+  // ログを削除する
+  // ============================
+  Future<void> removeLog(String logId) async {
+    _logs.removeWhere((l) => l.id == logId);
+    await _local.saveLogs(_logs);
+
+    try {
+      await _api.deleteLog(logId);
+    } on Exception catch (e) {
+      if (kDebugMode) {
+        debugPrint('[Repo] ログの削除失敗: $e');
+      }
+    }
+  }
+
+  // ============================
+  // ローカルデータを全消去（ログアウト時）
+  // ============================
+  Future<void> clearAll() async {
+    _items = [];
+    _logs = [];
+    _currentUser = null;
+    await _local.clearAll();
   }
 
   // ============================
@@ -80,65 +176,7 @@ class WearRepository {
     try {
       return _items.firstWhere((item) => item.id == id);
     } on StateError {
-      // 該当するアイテムが見つからなかった場合は null を返す
       return null;
     }
   }
 }
-
-// ============================================================
-// ダミーデータ（フェーズ1用。フェーズ2で削除してOK）
-// ============================================================
-
-const _dummyUser = User(id: 'u001', name: 'テストユーザー', email: 'test@example.com');
-
-final _dummyItems = [
-  WearItem(id: 'i001', userId: 'u001', category: 'コート',       color: '黒',       itemName: 'チェスターコート（黒）',       createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i002', userId: 'u001', category: 'コート',       color: '紺',       itemName: 'ステンカラーコート（紺）',     createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i003', userId: 'u001', category: 'ニット',       color: '白',       itemName: 'タートルネック（白）',         createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i004', userId: 'u001', category: 'ニット',       color: 'ベージュ', itemName: 'Vネックニット（ベージュ）',     createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i005', userId: 'u001', category: 'ニット',       color: 'グレー',   itemName: 'クルーネックニット（グレー）', createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i006', userId: 'u001', category: 'パーカー',     color: 'グレー',   itemName: 'ジップパーカー（グレー）',     createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i007', userId: 'u001', category: 'パーカー',     color: '黒',       itemName: 'プルオーバーパーカー（黒）',   createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i008', userId: 'u001', category: 'Tシャツ',      color: '白',       itemName: '無地Tシャツ（白）',           createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i009', userId: 'u001', category: 'Tシャツ',      color: '黒',       itemName: 'ロゴTシャツ（黒）',           createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i010', userId: 'u001', category: 'Tシャツ',      color: '青',       itemName: 'ボーダーTシャツ（青）',       createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i011', userId: 'u001', category: 'シャツ',       color: '青',       itemName: 'オックスフォードシャツ（青）', createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i012', userId: 'u001', category: 'シャツ',       color: '白',       itemName: 'リネンシャツ（白）',           createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i013', userId: 'u001', category: 'シャツ',       color: 'チェック', itemName: 'チェックシャツ',               createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i014', userId: 'u001', category: 'ショートパンツ', color: 'ベージュ', itemName: 'チノショーツ（ベージュ）',   createdAt: DateTime(2025, 10, 1)),
-  WearItem(id: 'i015', userId: 'u001', category: 'ショートパンツ', color: '黒',     itemName: 'スウェットショーツ（黒）',     createdAt: DateTime(2025, 10, 1)),
-];
-
-final _dummyCreatedAt = DateTime(2025, 1, 1);
-
-final _dummyLogs = [
-  // --- 冬（12〜2月） ---
-  WearLog(id: 'l001', userId: 'u001', wearItemId: 'i001', category: 'コート',   color: '黒',       date: DateTime(2025, 12, 3),  createdAt: _dummyCreatedAt),
-  WearLog(id: 'l002', userId: 'u001', wearItemId: 'i003', category: 'ニット',   color: '白',       date: DateTime(2025, 12, 10), createdAt: _dummyCreatedAt),
-  WearLog(id: 'l003', userId: 'u001', wearItemId: 'i001', category: 'コート',   color: '黒',       date: DateTime(2025, 12, 20), createdAt: _dummyCreatedAt),
-  WearLog(id: 'l004', userId: 'u001', wearItemId: 'i006', category: 'パーカー', color: 'グレー',   date: DateTime(2026, 1, 5),   createdAt: _dummyCreatedAt),
-  WearLog(id: 'l005', userId: 'u001', wearItemId: 'i004', category: 'ニット',   color: 'ベージュ', date: DateTime(2026, 1, 12),  createdAt: _dummyCreatedAt),
-  WearLog(id: 'l006', userId: 'u001', wearItemId: 'i001', category: 'コート',   color: '黒',       date: DateTime(2026, 1, 25),  createdAt: _dummyCreatedAt),
-  WearLog(id: 'l007', userId: 'u001', wearItemId: 'i007', category: 'パーカー', color: '黒',       date: DateTime(2026, 2, 1),   createdAt: _dummyCreatedAt),
-  WearLog(id: 'l008', userId: 'u001', wearItemId: 'i003', category: 'ニット',   color: '白',       date: DateTime(2026, 2, 8),   createdAt: _dummyCreatedAt),
-  // --- 春（3〜5月） ---
-  WearLog(id: 'l009', userId: 'u001', wearItemId: 'i009', category: 'Tシャツ',  color: '黒',       date: DateTime(2025, 3, 22),  createdAt: _dummyCreatedAt),
-  WearLog(id: 'l010', userId: 'u001', wearItemId: 'i008', category: 'Tシャツ',  color: '白',       date: DateTime(2025, 4, 10),  createdAt: _dummyCreatedAt),
-  WearLog(id: 'l011', userId: 'u001', wearItemId: 'i011', category: 'シャツ',   color: '青',       date: DateTime(2025, 4, 20),  createdAt: _dummyCreatedAt),
-  WearLog(id: 'l012', userId: 'u001', wearItemId: 'i006', category: 'パーカー', color: 'グレー',   date: DateTime(2025, 5, 3),   createdAt: _dummyCreatedAt),
-  WearLog(id: 'l013', userId: 'u001', wearItemId: 'i012', category: 'シャツ',   color: '白',       date: DateTime(2025, 5, 15),  createdAt: _dummyCreatedAt),
-  // --- 夏（6〜8月） ---
-  WearLog(id: 'l014', userId: 'u001', wearItemId: 'i008', category: 'Tシャツ',        color: '白',       date: DateTime(2025, 6, 5),  createdAt: _dummyCreatedAt),
-  WearLog(id: 'l015', userId: 'u001', wearItemId: 'i009', category: 'Tシャツ',        color: '黒',       date: DateTime(2025, 7, 10), createdAt: _dummyCreatedAt),
-  WearLog(id: 'l016', userId: 'u001', wearItemId: 'i008', category: 'Tシャツ',        color: '白',       date: DateTime(2025, 7, 20), createdAt: _dummyCreatedAt),
-  WearLog(id: 'l017', userId: 'u001', wearItemId: 'i014', category: 'ショートパンツ', color: 'ベージュ', date: DateTime(2025, 8, 1),  createdAt: _dummyCreatedAt),
-  WearLog(id: 'l018', userId: 'u001', wearItemId: 'i010', category: 'Tシャツ',        color: '青',       date: DateTime(2025, 8, 15), createdAt: _dummyCreatedAt),
-  WearLog(id: 'l019', userId: 'u001', wearItemId: 'i015', category: 'ショートパンツ', color: '黒',       date: DateTime(2025, 8, 25), createdAt: _dummyCreatedAt),
-  // --- 秋（9〜11月） ---
-  WearLog(id: 'l020', userId: 'u001', wearItemId: 'i013', category: 'シャツ',   color: 'チェック', date: DateTime(2025, 9, 8),   createdAt: _dummyCreatedAt),
-  WearLog(id: 'l021', userId: 'u001', wearItemId: 'i007', category: 'パーカー', color: '黒',       date: DateTime(2025, 10, 5),  createdAt: _dummyCreatedAt),
-  WearLog(id: 'l022', userId: 'u001', wearItemId: 'i005', category: 'ニット',   color: 'グレー',   date: DateTime(2025, 10, 20), createdAt: _dummyCreatedAt),
-  WearLog(id: 'l023', userId: 'u001', wearItemId: 'i006', category: 'パーカー', color: 'グレー',   date: DateTime(2025, 11, 3),  createdAt: _dummyCreatedAt),
-  WearLog(id: 'l024', userId: 'u001', wearItemId: 'i002', category: 'コート',   color: '紺',       date: DateTime(2025, 11, 25), createdAt: _dummyCreatedAt),
-];
