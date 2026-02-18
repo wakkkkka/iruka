@@ -79,7 +79,8 @@ class WearRepository {
   WearItem? getItemById(String id) {
     try {
       return _items.firstWhere((item) => item.id == id);
-    } catch (_) {
+    } on StateError {
+      // 該当するアイテムが見つからなかった場合は null を返す
       return null;
     }
   }
@@ -109,35 +110,35 @@ final _dummyItems = [
   WearItem(id: 'i015', userId: 'u001', category: 'ショートパンツ', color: '黒',     itemName: 'スウェットショーツ（黒）',     createdAt: DateTime(2025, 10, 1)),
 ];
 
-final _now = DateTime.now();
+final _dummyCreatedAt = DateTime(2025, 1, 1);
 
 final _dummyLogs = [
   // --- 冬（12〜2月） ---
-  WearLog(id: 'l001', userId: 'u001', wearItemId: 'i001', category: 'コート',   color: '黒',       date: DateTime(2025, 12, 3),  createdAt: _now),
-  WearLog(id: 'l002', userId: 'u001', wearItemId: 'i003', category: 'ニット',   color: '白',       date: DateTime(2025, 12, 10), createdAt: _now),
-  WearLog(id: 'l003', userId: 'u001', wearItemId: 'i001', category: 'コート',   color: '黒',       date: DateTime(2025, 12, 20), createdAt: _now),
-  WearLog(id: 'l004', userId: 'u001', wearItemId: 'i006', category: 'パーカー', color: 'グレー',   date: DateTime(2026, 1, 5),   createdAt: _now),
-  WearLog(id: 'l005', userId: 'u001', wearItemId: 'i004', category: 'ニット',   color: 'ベージュ', date: DateTime(2026, 1, 12),  createdAt: _now),
-  WearLog(id: 'l006', userId: 'u001', wearItemId: 'i001', category: 'コート',   color: '黒',       date: DateTime(2026, 1, 25),  createdAt: _now),
-  WearLog(id: 'l007', userId: 'u001', wearItemId: 'i007', category: 'パーカー', color: '黒',       date: DateTime(2026, 2, 1),   createdAt: _now),
-  WearLog(id: 'l008', userId: 'u001', wearItemId: 'i003', category: 'ニット',   color: '白',       date: DateTime(2026, 2, 8),   createdAt: _now),
+  WearLog(id: 'l001', userId: 'u001', wearItemId: 'i001', category: 'コート',   color: '黒',       date: DateTime(2025, 12, 3),  createdAt: _dummyCreatedAt),
+  WearLog(id: 'l002', userId: 'u001', wearItemId: 'i003', category: 'ニット',   color: '白',       date: DateTime(2025, 12, 10), createdAt: _dummyCreatedAt),
+  WearLog(id: 'l003', userId: 'u001', wearItemId: 'i001', category: 'コート',   color: '黒',       date: DateTime(2025, 12, 20), createdAt: _dummyCreatedAt),
+  WearLog(id: 'l004', userId: 'u001', wearItemId: 'i006', category: 'パーカー', color: 'グレー',   date: DateTime(2026, 1, 5),   createdAt: _dummyCreatedAt),
+  WearLog(id: 'l005', userId: 'u001', wearItemId: 'i004', category: 'ニット',   color: 'ベージュ', date: DateTime(2026, 1, 12),  createdAt: _dummyCreatedAt),
+  WearLog(id: 'l006', userId: 'u001', wearItemId: 'i001', category: 'コート',   color: '黒',       date: DateTime(2026, 1, 25),  createdAt: _dummyCreatedAt),
+  WearLog(id: 'l007', userId: 'u001', wearItemId: 'i007', category: 'パーカー', color: '黒',       date: DateTime(2026, 2, 1),   createdAt: _dummyCreatedAt),
+  WearLog(id: 'l008', userId: 'u001', wearItemId: 'i003', category: 'ニット',   color: '白',       date: DateTime(2026, 2, 8),   createdAt: _dummyCreatedAt),
   // --- 春（3〜5月） ---
-  WearLog(id: 'l009', userId: 'u001', wearItemId: 'i008', category: 'Tシャツ',  color: '白',       date: DateTime(2025, 4, 10),  createdAt: _now),
-  WearLog(id: 'l010', userId: 'u001', wearItemId: 'i011', category: 'シャツ',   color: '青',       date: DateTime(2025, 4, 20),  createdAt: _now),
-  WearLog(id: 'l011', userId: 'u001', wearItemId: 'i006', category: 'パーカー', color: 'グレー',   date: DateTime(2025, 5, 3),   createdAt: _now),
-  WearLog(id: 'l012', userId: 'u001', wearItemId: 'i012', category: 'シャツ',   color: '白',       date: DateTime(2025, 5, 15),  createdAt: _now),
-  WearLog(id: 'l013', userId: 'u001', wearItemId: 'i009', category: 'Tシャツ',  color: '黒',       date: DateTime(2025, 3, 22),  createdAt: _now),
+  WearLog(id: 'l009', userId: 'u001', wearItemId: 'i009', category: 'Tシャツ',  color: '黒',       date: DateTime(2025, 3, 22),  createdAt: _dummyCreatedAt),
+  WearLog(id: 'l010', userId: 'u001', wearItemId: 'i008', category: 'Tシャツ',  color: '白',       date: DateTime(2025, 4, 10),  createdAt: _dummyCreatedAt),
+  WearLog(id: 'l011', userId: 'u001', wearItemId: 'i011', category: 'シャツ',   color: '青',       date: DateTime(2025, 4, 20),  createdAt: _dummyCreatedAt),
+  WearLog(id: 'l012', userId: 'u001', wearItemId: 'i006', category: 'パーカー', color: 'グレー',   date: DateTime(2025, 5, 3),   createdAt: _dummyCreatedAt),
+  WearLog(id: 'l013', userId: 'u001', wearItemId: 'i012', category: 'シャツ',   color: '白',       date: DateTime(2025, 5, 15),  createdAt: _dummyCreatedAt),
   // --- 夏（6〜8月） ---
-  WearLog(id: 'l014', userId: 'u001', wearItemId: 'i008', category: 'Tシャツ',        color: '白',       date: DateTime(2025, 6, 5),  createdAt: _now),
-  WearLog(id: 'l015', userId: 'u001', wearItemId: 'i009', category: 'Tシャツ',        color: '黒',       date: DateTime(2025, 7, 10), createdAt: _now),
-  WearLog(id: 'l016', userId: 'u001', wearItemId: 'i008', category: 'Tシャツ',        color: '白',       date: DateTime(2025, 7, 20), createdAt: _now),
-  WearLog(id: 'l017', userId: 'u001', wearItemId: 'i014', category: 'ショートパンツ', color: 'ベージュ', date: DateTime(2025, 8, 1),  createdAt: _now),
-  WearLog(id: 'l018', userId: 'u001', wearItemId: 'i010', category: 'Tシャツ',        color: '青',       date: DateTime(2025, 8, 15), createdAt: _now),
-  WearLog(id: 'l019', userId: 'u001', wearItemId: 'i015', category: 'ショートパンツ', color: '黒',       date: DateTime(2025, 8, 25), createdAt: _now),
+  WearLog(id: 'l014', userId: 'u001', wearItemId: 'i008', category: 'Tシャツ',        color: '白',       date: DateTime(2025, 6, 5),  createdAt: _dummyCreatedAt),
+  WearLog(id: 'l015', userId: 'u001', wearItemId: 'i009', category: 'Tシャツ',        color: '黒',       date: DateTime(2025, 7, 10), createdAt: _dummyCreatedAt),
+  WearLog(id: 'l016', userId: 'u001', wearItemId: 'i008', category: 'Tシャツ',        color: '白',       date: DateTime(2025, 7, 20), createdAt: _dummyCreatedAt),
+  WearLog(id: 'l017', userId: 'u001', wearItemId: 'i014', category: 'ショートパンツ', color: 'ベージュ', date: DateTime(2025, 8, 1),  createdAt: _dummyCreatedAt),
+  WearLog(id: 'l018', userId: 'u001', wearItemId: 'i010', category: 'Tシャツ',        color: '青',       date: DateTime(2025, 8, 15), createdAt: _dummyCreatedAt),
+  WearLog(id: 'l019', userId: 'u001', wearItemId: 'i015', category: 'ショートパンツ', color: '黒',       date: DateTime(2025, 8, 25), createdAt: _dummyCreatedAt),
   // --- 秋（9〜11月） ---
-  WearLog(id: 'l020', userId: 'u001', wearItemId: 'i013', category: 'シャツ',   color: 'チェック', date: DateTime(2025, 9, 8),   createdAt: _now),
-  WearLog(id: 'l021', userId: 'u001', wearItemId: 'i007', category: 'パーカー', color: '黒',       date: DateTime(2025, 10, 5),  createdAt: _now),
-  WearLog(id: 'l022', userId: 'u001', wearItemId: 'i005', category: 'ニット',   color: 'グレー',   date: DateTime(2025, 10, 20), createdAt: _now),
-  WearLog(id: 'l023', userId: 'u001', wearItemId: 'i006', category: 'パーカー', color: 'グレー',   date: DateTime(2025, 11, 3),  createdAt: _now),
-  WearLog(id: 'l024', userId: 'u001', wearItemId: 'i002', category: 'コート',   color: '紺',       date: DateTime(2025, 11, 25), createdAt: _now),
+  WearLog(id: 'l020', userId: 'u001', wearItemId: 'i013', category: 'シャツ',   color: 'チェック', date: DateTime(2025, 9, 8),   createdAt: _dummyCreatedAt),
+  WearLog(id: 'l021', userId: 'u001', wearItemId: 'i007', category: 'パーカー', color: '黒',       date: DateTime(2025, 10, 5),  createdAt: _dummyCreatedAt),
+  WearLog(id: 'l022', userId: 'u001', wearItemId: 'i005', category: 'ニット',   color: 'グレー',   date: DateTime(2025, 10, 20), createdAt: _dummyCreatedAt),
+  WearLog(id: 'l023', userId: 'u001', wearItemId: 'i006', category: 'パーカー', color: 'グレー',   date: DateTime(2025, 11, 3),  createdAt: _dummyCreatedAt),
+  WearLog(id: 'l024', userId: 'u001', wearItemId: 'i002', category: 'コート',   color: '紺',       date: DateTime(2025, 11, 25), createdAt: _dummyCreatedAt),
 ];

@@ -42,7 +42,7 @@ class WearItem {
         category: m['category'] as String,
         color: m['color'] as String,
         itemName: m['itemName'] as String,
-        tags: List<String>.from(m['tags'] ?? []),
+        tags: List<String>.unmodifiable(m['tags'] ?? []),
         imageUrl: m['imageUrl'] as String?,
         createdAt: DateTime.parse(m['createdAt'] as String),
       );
