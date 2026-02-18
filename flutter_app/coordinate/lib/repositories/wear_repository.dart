@@ -20,8 +20,8 @@ class WearRepository {
   // ============================
   // 画面から使う getter
   // ============================
-  List<WearItem> get items => _items;
-  List<WearLog> get logs => _logs;
+  List<WearItem> get items => List.unmodifiable(_items);
+  List<WearLog> get logs => List.unmodifiable(_logs);
   User? get currentUser => _currentUser;
 
   // ============================

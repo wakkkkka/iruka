@@ -26,10 +26,15 @@
 └─────────────────────────────────┘
 ```
 
-### 3つのルール
+### 3つのルール（フェーズ1：MVP）
 1. **マスタデータ（服一覧など）**: アプリ起動時にAWSから一括取得 → Provider にキャッシュ
 2. **ユーザー操作（記録・登録）**: Optimistic UI（画面に即反映）→ 裏でAWSに送信
-3. **オフライン**: 考慮しない（通信エラー時はエラー表示して終了）
+3. **オフライン（フェーズ1）**: 考慮しない（通信エラー時はエラー表示して終了）
+
+> **フェーズ別方針メモ**
+> - 上記ルールは **フェーズ1（MVP）** の前提
+> - 後半のオフラインキャッシュや `pending_uploads` は **フェーズ3 の拡張案**
+> - 実装時は「現在どのフェーズか」を確認してから着手すること
 
 ---
 
@@ -46,7 +51,7 @@
 | color         | String   | 白, 黒, グレー, etc.              |
 | itemName      | String   | ユーザーがつけた名前               |
 | tags          | List     | AIが検出したラベル + ユーザー追加タグ |
-| imageKey      | String   | S3上の画像キー                     |
+| imageUrl      | String   | 画像のURL（S3キー or ローカルパス）  |
 | createdAt     | String   | 登録日時（ISO 8601）               |
 
 ### DynamoDB: `UsageLogs` テーブル（着用ログ）
@@ -54,15 +59,15 @@
 |---------------|----------|-----------------------------------|
 | id            | String   | ログのユニークID                   |
 | userId        | String   | ユーザーID                         |
-| clothId       | String   | 着た服のID（Clothesテーブルと紐づけ） |
-| date          | String   | 着用日（YYYY-MM-DD）               |
-| selfieKey     | String   | 自撮り画像のS3キー                 |
+| wearItemId    | String   | 着た服のID（Clothesテーブルと紐づけ） |
+| date          | String   | 着用日（ISO 8601）                 |
+| selfieUrl     | String   | 自撮り画像のURL                    |
 | createdAt     | String   | 記録日時                           |
 
 ### S3 バケット
 | パス                              | 用途                    |
 |-----------------------------------|------------------------|
-| `clothes/{userId}/{clothId}.jpg`  | 服の平置き/スクショ画像   |
+| `clothes/{userId}/{wearItemId}.jpg` | 服の平置き/スクショ画像  |
 | `selfies/{userId}/{date}_{id}.jpg`| その日の自撮り画像       |
 
 ---
@@ -86,7 +91,7 @@
 | `tmp/camera_*.jpg`           | 撮影直後の一時画像（解析前）        |
 | `cache/clothes/{id}.jpg`     | 服画像のローカルキャッシュ          |
 
-### SQLite or shared_preferences（オフラインキャッシュ）
+### SQLite or shared_preferences（オフラインキャッシュ）※フェーズ3で検討
 | データ                | 説明                                          |
 |----------------------|-----------------------------------------------|
 | `cached_clothes`     | 服一覧のキャッシュ（起動時に表示高速化）          |
@@ -170,7 +175,7 @@
    - 現在 `statistics_page.dart` にべた書きされているものを `lib/data/` に移動
 3. **各画面は「データの取得元」を直接知らない設計にする**
    - 今は `dummyWearLogs` を直接参照 → 将来 API に差し替えやすくする
-   - Repository パターンまでは不要、まずは関数で抽象化する程度でOK
+   - 簡易 Repository（`WearRepository`）を導入済み。画面はここからデータを取得する
 
 ---
 
