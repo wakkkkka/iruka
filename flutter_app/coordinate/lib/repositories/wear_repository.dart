@@ -79,7 +79,8 @@ class WearRepository {
   WearItem? getItemById(String id) {
     try {
       return _items.firstWhere((item) => item.id == id);
-    } catch (_) {
+    } on StateError {
+      // 該当するアイテムが見つからなかった場合は null を返す
       return null;
     }
   }
