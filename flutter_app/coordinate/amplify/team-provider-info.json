@@ -9,15 +9,26 @@
       "UnauthRoleName": "amplify-coordinate-dev-c138b-unauthRole",
       "StackName": "amplify-coordinate-dev-c138b",
       "StackId": "arn:aws:cloudformation:ap-northeast-1:061433043047:stack/amplify-coordinate-dev-c138b/5927f450-0b3c-11f1-b378-0e9bd402938f",
-      "AmplifyAppId": "d13sckncs5na8s"
+      "AmplifyAppId": "d13sckncs5na8s",
+      "APIGatewayAuthURL": "https://s3.amazonaws.com/amplify-coordinate-dev-c138b-deployment/amplify-cfn-templates/api/APIGatewayAuthStack.json"
     },
     "categories": {
       "function": {
-        "coordinateb126374f": {}
+        "coordinateb126374f": {},
+        "coordinatece970dec": {
+          "deploymentBucketName": "amplify-coordinate-dev-c138b-deployment",
+          "s3Key": "amplify-builds/coordinatece970dec-4167582f486932737077-build.zip"
+        }
       },
       "auth": {
         "coordinate68386cd7": {},
         "coordinatee647b035": {}
+      },
+      "storage": {
+        "s3d72d66be": {}
+      },
+      "api": {
+        "apif4831e80": {}
       }
     }
   }

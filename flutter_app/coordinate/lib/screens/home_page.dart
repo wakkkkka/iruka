@@ -3,6 +3,7 @@ import 'calendar_page.dart';
 import 'settings_page.dart';
 import 'statistics_page.dart';
 import 'camera_page.dart';
+import '../services/clothes_api_service.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -13,6 +14,108 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final ClothesApiService _clothesApiService = ClothesApiService();
+
+  bool _closetBusy = false;
+  String _closetLog = '';
+
+  Future<void> _runClosetTask(Future<void> Function() task) async {
+    if (_closetBusy) return;
+    setState(() {
+      _closetBusy = true;
+    });
+    try {
+      await task();
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _closetBusy = false;
+      });
+    }
+  }
+
+  void _appendLog(String text) {
+    setState(() {
+      final trimmed = text.trim();
+      _closetLog = _closetLog.isEmpty ? trimmed : '$_closetLog\n\n$trimmed';
+    });
+  }
+
+  Widget _buildClosetHome() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'クローゼット（ホーム）',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _closetBusy
+                        ? null
+                        : () => _runClosetTask(() async {
+                              try {
+                                final items = await _clothesApiService.listClothes();
+                                _appendLog('GET /clothes\n${items.length}件\n$items');
+                              } catch (e) {
+                                _appendLog('GET /clothes 失敗\n$e');
+                              }
+                            }),
+                    child: const Text('一覧取得'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _closetBusy
+                        ? null
+                        : () => _runClosetTask(() async {
+                              try {
+                                final created = await _clothesApiService.createClothes(
+                                  category: 'tops',
+                                  subCategory: 't-shirt',
+                                  color: 'navy',
+                                  sleeveLength: 'short',
+                                  season: const ['spring', 'fall'],
+                                  scene: 'casual',
+                                );
+                                _appendLog('POST /clothes 成功\n$created');
+                              } catch (e) {
+                                _appendLog('POST /clothes 失敗\n$e');
+                              }
+                            }),
+                    child: const Text('サンプル追加'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SingleChildScrollView(
+                  child: Text(
+                    _closetLog.isEmpty ? 'ここに結果が表示されます' : _closetLog,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildCircleMenuButton({required IconData icon, required String label, required VoidCallback onTap}) {
     return Column(
@@ -38,12 +141,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   int _selectedIndex = 1;
-  final List<Widget> _pages = [
-    const CalendarPage(),
-    Center(child: Text('クローゼット（ホーム）', style: TextStyle(fontSize: 24))),
-    const StatisticsPage(),
-    const SettingsPage(),
-  ];
 
   bool _showCameraOverlay = false;
 
@@ -67,10 +164,17 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final pages = <Widget>[
+      const CalendarPage(),
+      _buildClosetHome(),
+      const StatisticsPage(),
+      const SettingsPage(),
+    ];
+
     return Stack(
       children: [
         Scaffold(
-          body: _pages[_selectedIndex],
+          body: pages[_selectedIndex],
             floatingActionButton: _selectedIndex == 1
                 ? SizedBox(
                     width: 60.0,
