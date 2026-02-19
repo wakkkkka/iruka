@@ -31,20 +31,24 @@ prompt = """
 
 
 # 厳守するマスタータグ定義
-- category: tops, bottoms, outer, dress, setup, shoes
-- subCategory: t-shirt, shirt/blouse, knit/sweater, sweatshirt/hoodie, cut-and-sewn, denim/jeans, slacks/pants, skirt, shorts
-- color: white, off-white, ivory, black, gray, greige, charcoal, brown, camel, moca, beige, blue, sky, turquoise, navy, green, lime, pistachio, khaki, yellow, mustard, orange, terracotta,red, bord, pink, purple,gold, silver,denim,  multi-color, other
-- sleeveLength: less, short, elbow-length, three-quarter, long
-- hemLength: mini, full, half
+- category: tops, bottoms, outer, dress, shoes
+- subCategory: t-shirt, shirt/blouse, knit/sweater, sweatshirt/hoodie, denim/jeans, slacks/pants, skirt, shorts, jacket/coat, cardigan, one-piece, setup, sneakers, leather/pumps, boots, sandals
+- color: white, black, gray, brown, beige, blue, navy, green, yellow, orange, red, pink, purple, gold, silver, denim, multi-color
+- sleeveLength: short, half, long
+- hemLength: short, half, long
+- season: spring, summer, fall, winter
+- scene: casual, business, feminine, other
 
 # 出力形式 (JSON)
 {
   "detected_items": [
     {
-      "category": "トップス",
-      "subCategory": "Tシャツ",
-      "color": "White",
-      "sleeveLength": "半袖"
+      "category": "tops",
+      "subCategory": "t-shirt",
+      "color": "white",
+      "sleeveLength": "short",
+      "season": ["spring","summer"],
+      "scene": "casual"
     },
     ...
   ]
