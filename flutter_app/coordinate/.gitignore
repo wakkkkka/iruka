@@ -12,6 +12,8 @@
 .swiftpm/
 migrate_working_dir/
 
+.env
+
 # IntelliJ related
 *.iml
 *.ipr
@@ -68,5 +70,4 @@ amplify-build-config.json
 amplify-gradle-config.json
 amplifytools.xcconfig
 .secret-*
-**.sample
 #amplify-do-not-edit-end
