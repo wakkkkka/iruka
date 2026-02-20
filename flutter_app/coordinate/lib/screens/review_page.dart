@@ -14,12 +14,15 @@ class ReviewPage extends StatefulWidget {
 
 class _ReviewPageState extends State<ReviewPage> {
   final List<String> _suggestedTags = ['Tシャツ', 'シャツ', 'パーカー', 'ニット', 'コート'];
-  final Set<String> _selectedTags = {}; 
+  final Set<String> _selectedTags = {};
 
   void _toggleTag(String tag) {
     setState(() {
-      if (_selectedTags.contains(tag)) _selectedTags.remove(tag);
-      else _selectedTags.add(tag);
+      if (_selectedTags.contains(tag)) {
+        _selectedTags.remove(tag);
+      } else {
+        _selectedTags.add(tag);
+      }
     });
   }
 
@@ -60,8 +63,8 @@ class _ReviewPageState extends State<ReviewPage> {
                 child: widget.imagePath.isEmpty
                     ? const Icon(Icons.image, size: 120)
                     : kIsWeb
-                        ? Image.network(widget.imagePath)
-                        : Image.file(File(widget.imagePath)),
+                    ? Image.network(widget.imagePath)
+                    : Image.file(File(widget.imagePath)),
               ),
             ),
             const SizedBox(height: 12),

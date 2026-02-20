@@ -1,23 +1,16 @@
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'review_page.dart';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart'
-  show kIsWeb, defaultTargetPlatform, TargetPlatform;
-
 import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 
 import '../services/clothes_api_service.dart';
 
-enum CameraPagePurpose {
-  registerItem,
-  selfie,
-}
+enum CameraPagePurpose { registerItem, selfie }
 
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key, required this.purpose});
@@ -85,9 +78,9 @@ class _CameraPageState extends State<CameraPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('エラー: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('エラー: $e')));
     }
   }
 
@@ -112,25 +105,25 @@ class _CameraPageState extends State<CameraPage> {
     final imageFile = _imageFile;
     final imageBytes = _imageBytes;
     if (imageFile == null || imageBytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('先に写真を選択してください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('先に写真を選択してください')));
       return;
     }
 
     if (widget.purpose != CameraPagePurpose.registerItem) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('自撮り解析はCRUD完成後に実装します')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('自撮り解析はCRUD完成後に実装します')));
       return;
     }
 
     final category = _categoryController.text.trim();
     final color = _colorController.text.trim();
     if (category.isEmpty || color.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('カテゴリと色は必須です')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('カテゴリと色は必須です')));
       return;
     }
 
@@ -171,8 +164,12 @@ class _CameraPageState extends State<CameraPage> {
             ? null
             : _sceneController.text.trim(),
         imageUrl: objectPath,
-        name: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
-        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        name: _nameController.text.trim().isEmpty
+            ? null
+            : _nameController.text.trim(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
       );
 
       if (!mounted) return;
@@ -183,19 +180,19 @@ class _CameraPageState extends State<CameraPage> {
       Navigator.pop(context);
     } on AuthException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('認証エラー: ${e.message}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('認証エラー: ${e.message}')));
     } on StorageException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('アップロード失敗: ${e.message}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('アップロード失敗: ${e.message}')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('登録に失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('登録に失敗しました: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -250,45 +247,24 @@ class _CameraPageState extends State<CameraPage> {
   Widget _buildControlPanel() {
     final isLinux = !kIsWeb && defaultTargetPlatform == TargetPlatform.linux;
     return Container(
-      padding: const EdgeInsets.all(40),
+      padding: const EdgeInsets.all(24),
       child: _imageFile == null
           ? Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _actionButton(
                   Icons.image,
-                  "ギャラリー",
+                  'ギャラリー',
                   () => _pickImage(ImageSource.gallery),
                 ),
-                // Linux環境ではカメラボタンを表示しない
                 if (!isLinux)
                   _actionButton(
                     Icons.camera_alt,
-                    "カメラで撮る",
+                    'カメラで撮る',
                     () => _pickImage(ImageSource.camera),
                   ),
               ],
             )
-          : Column(
-              children: [
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ReviewPage(imagePath: _imageFile!.path),
-                      ),
-                    );
-                  },
-                  child: const Text("この写真で解析する"),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() => _imageFile = null);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey,
           : SingleChildScrollView(
               child: Column(
                 children: [
@@ -397,12 +373,14 @@ class _CameraPageState extends State<CameraPage> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _imageFile = null;
-                          _imageBytes = null;
-                        });
-                      },
+                      onPressed: _isSubmitting
+                          ? null
+                          : () {
+                              setState(() {
+                                _imageFile = null;
+                                _imageBytes = null;
+                              });
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey,
                       ),

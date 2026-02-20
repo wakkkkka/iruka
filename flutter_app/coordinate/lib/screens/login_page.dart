@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -54,7 +53,9 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
 
     // デバッグ出力
-    print('signIn result: isSignedIn=${result.isSignedIn}, error=${result.errorMessage}');
+    debugPrint(
+      'signIn result: isSignedIn=${result.isSignedIn}, error=${result.errorMessage}',
+    );
 
     if (result.isSignedIn) {
       Navigator.pushReplacementNamed(context, '/home');
@@ -68,9 +69,7 @@ class _LoginPageState extends State<LoginPage> {
     setState(() {
       _errorMessage = msg;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
     if (mounted) {
       setState(() {
@@ -151,7 +150,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
               ),
-              
             ],
           ),
         ),
