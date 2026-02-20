@@ -1,14 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'dart:math';
 import 'dart:typed_data';
-
-import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform;
-
 import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
-
 import '../services/clothes_api_service.dart';
 import '../services/selfie_api_service.dart';
 
@@ -176,7 +172,12 @@ class _CameraPageState extends State<CameraPage> {
       return;
     }
 
-    if (widget.purpose != CameraPagePurpose.registerItem) return;
+    if (widget.purpose != CameraPagePurpose.registerItem) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('自撮り解析はCRUD完成後に実装します')));
+      return;
+    }
 
     final category = _categoryController.text.trim();
     final color = _colorController.text.trim();
@@ -446,21 +447,20 @@ class _CameraPageState extends State<CameraPage> {
   Widget _buildControlPanel() {
     final isLinux = !kIsWeb && defaultTargetPlatform == TargetPlatform.linux;
     return Container(
-      padding: const EdgeInsets.all(40),
+      padding: const EdgeInsets.all(24),
       child: _imageFile == null
           ? Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _actionButton(
                   Icons.image,
-                  "ギャラリー",
+                  'ギャラリー',
                   () => _pickImage(ImageSource.gallery),
                 ),
-                // Linux環境ではカメラボタンを表示しない
                 if (!isLinux)
                   _actionButton(
                     Icons.camera_alt,
-                    "カメラで撮る",
+                    'カメラで撮る',
                     () => _pickImage(ImageSource.camera),
                   ),
               ],
@@ -600,15 +600,17 @@ class _CameraPageState extends State<CameraPage> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _imageFile = null;
-                          _imageBytes = null;
-                          _selfieKey = null;
-                          _analyzeResults = const [];
-                          _selections = const {};
-                        });
-                      },
+                      onPressed: _isSubmitting
+                          ? null
+                          : () {
+                              setState(() {
+                                _imageFile = null;
+                                _imageBytes = null;
+                                _selfieKey = null;
+                                _analyzeResults = const [];
+                                _selections = const {};
+                              });
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey,
                       ),

@@ -10,6 +10,9 @@ import 'amplifyconfiguration.dart';
 import 'screens/login_page.dart';
 import 'screens/signup_page.dart';
 import 'screens/home_page.dart';
+import 'screens/review_page.dart';
+import 'screens/registration_complete_page.dart';
+import 'screens/settings_page.dart';
 
 // 2. 利用可能なカメラのリストをグローバル（どこからでも呼べる場所）に定義
 late List<CameraDescription> cameras;
@@ -77,8 +80,18 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/signup': (context) => const SignupPage(),
         '/home': (context) => HomePage(),
-        // ここでカメラページをルートに追加することもできますが、
-        // 遷移時に引数を渡すことが多いので今はそのままでOKです。
+        '/settings': (context) => const SettingsPage(),
+        '/registration_complete': (context) => const RegistrationCompletePage(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/review') {
+          final args = settings.arguments;
+          if (args is String) {
+            return MaterialPageRoute(
+                builder: (context) => ReviewPage(imagePath: args));
+          }
+        }
+        return null;
       },
     );
   }

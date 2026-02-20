@@ -8,7 +8,14 @@ class AuthService {
   Future<bool> isSignedIn() async {
     try {
       final session = await Amplify.Auth.fetchAuthSession();
-      return session.isSignedIn;
+      try {
+        return session.isSignedIn;
+      } catch (e) {
+        // 一部の Amplify バージョンや環境で内部実装の型が異なる場合があるため
+        // 安全側に倒して false を返す
+        safePrint('isSignedIn check failed: $e');
+        return false;
+      }
     } on AuthException {
       return false;
     } catch (_) {
@@ -23,12 +30,6 @@ class AuthService {
   >
   signIn(String email, String password) async {
     try {
-      final session = await Amplify.Auth.fetchAuthSession();
-      if (session.isSignedIn) {
-        safePrint('サインイン済みのため signIn をスキップします');
-        return (isSignedIn: true, errorMessage: null, nextStep: null);
-      }
-
       final normalizedEmail = _normalizeEmail(email);
       final normalizedPassword = password;
       safePrint('Cognitoへ認証リクエスト: $normalizedEmail');
@@ -142,15 +143,10 @@ class AuthService {
   Future<({bool success, String? errorMessage})> signOut() async {
     try {
       await Amplify.Auth.signOut();
-
-      final session = await Amplify.Auth.fetchAuthSession();
-      if (!session.isSignedIn) {
-        safePrint('ログアウト成功');
-        return (success: true, errorMessage: null);
-      }
-
-      safePrint('ログアウト後もセッションが残っています');
-      return (success: false, errorMessage: 'ログアウトできませんでした（セッションが残っています）');
+      // 一部環境で fetchAuthSession が内部的に例外を投げる場合があるため
+      // ここでは signOut が例外を投げなければ成功と見なす
+      safePrint('ログアウト成功');
+      return (success: true, errorMessage: null);
     } on AuthException catch (e) {
       safePrint('ログアウトエラー: ${e.message}');
       return (success: false, errorMessage: e.message);

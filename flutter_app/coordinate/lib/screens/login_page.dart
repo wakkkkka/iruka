@@ -50,15 +50,28 @@ class _LoginPageState extends State<LoginPage> {
       _passwordController.text,
     );
 
+    if (!mounted) return;
+
+    // デバッグ出力
+    debugPrint(
+      'signIn result: isSignedIn=${result.isSignedIn}, error=${result.errorMessage}',
+    );
+
+    if (result.isSignedIn) {
+      Navigator.pushReplacementNamed(context, '/home');
+      return;
+    }
+
+    // デバッグモードでも認証必須（本番環境と同じ挙動に修正）
+
+    // 通常の失敗処理
+    final msg = result.errorMessage ?? 'ログインに失敗しました。メールアドレスとパスワードを確認してください。';
+    setState(() {
+      _errorMessage = msg;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+
     if (mounted) {
-      if (result.isSignedIn) {
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        setState(() {
-          _errorMessage =
-              result.errorMessage ?? 'ログインに失敗しました。メールアドレスとパスワードを確認してください。';
-        });
-      }
       setState(() {
         _isLoading = false;
       });
