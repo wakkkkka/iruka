@@ -85,6 +85,7 @@ class _CameraPageState extends State<CameraPage> {
         });
       }
     } catch (e) {
+
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,

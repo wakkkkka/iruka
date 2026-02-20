@@ -3,7 +3,8 @@ import 'package:amplify_flutter/amplify_flutter.dart';
 import 'calendar_page.dart';
 import 'settings_page.dart';
 import 'statistics_page.dart';
-import 'camera_page.dart';
+import 'clothes_camera_page.dart';
+import 'selfie_camera_page.dart';
 import 'clothes_detail_page.dart';
 import '../services/clothes_api_service.dart';
 
@@ -358,54 +359,43 @@ class _HomePageState extends State<HomePage> {
         if (_showCameraOverlay)
           Positioned.fill(
             child: Material(
-              color: Colors.transparent, // 背景は透明にする
-              child: GestureDetector(
-                onTap: _hideCameraMenu,
-                child: Container(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        bottom: 85 + 56,
-                        right: 16,
-                        child: Column(
-                          children: [
-                            _buildCircleMenuButton(
-                              icon: Icons.camera_front,
-                              label: '自撮り',
-                              onTap: () {
-                                _hideCameraMenu();
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const CameraPage(
-                                      purpose: CameraPagePurpose.selfie,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            _buildCircleMenuButton(
-                              icon: Icons.add_a_photo,
-                              label: '新規登録',
-                              onTap: () {
-                                _hideCameraMenu();
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const CameraPage(
-                                      purpose: CameraPagePurpose.registerItem,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+      color: Colors.transparent, // 背景は透明にする
+      child: GestureDetector(
+        onTap: _hideCameraMenu,
+        child: Container(
+          color: Colors.white.withValues(alpha: 0.85),
+          child: Stack(
+            children: [
+              Positioned(
+                bottom: 85 + 56,
+                right: 16,
+                child: Column(
+                  children: [
+                    _buildCircleMenuButton(
+                        icon: Icons.camera_front,
+                        label: '着用記録',
+                        onTap: () {
+                          _hideCameraMenu();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const SelfieCameraPage()),
+                          );
+                        },
+                    ),
+                    const SizedBox(height: 16),
+                    _buildCircleMenuButton(
+                        icon: Icons.add_a_photo,
+                        label: '新規服登録',
+                        onTap: () {
+                          _hideCameraMenu();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const ClothesCameraPage()),
+                          );
+                        },
+                    ),
+                  ],
+
                 ),
               ),
             ),
