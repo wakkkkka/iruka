@@ -2,6 +2,10 @@
 
 A new Flutter project.
 
+## Docs
+
+- [docs/dynamodb_design.md](docs/dynamodb_design.md) (DynamoDB設計)
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
