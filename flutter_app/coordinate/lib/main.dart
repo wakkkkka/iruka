@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:amplify_flutter/amplify_flutter.dart';
@@ -27,6 +28,9 @@ Future<void> main() async {
     // 4. デバイス上のカメラ（背面・前面など）をすべて取得
     cameras = await availableCameras();
   } on CameraException catch (e) {
+    if (kDebugMode) {
+      debugPrint('カメラの取得に失敗しました: ${e.description}');
+    }
     safePrint('カメラの取得に失敗しました: ${e.description}');
   }
 

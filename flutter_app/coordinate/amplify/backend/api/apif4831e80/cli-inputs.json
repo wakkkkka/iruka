@@ -13,6 +13,32 @@
           "delete"
         ]
       }
+    },
+    "/analyze": {
+      "name": "/analyze",
+      "lambdaFunction": "coordinatece970dec",
+      "permissions": {
+        "setting": "private",
+        "auth": [
+          "create",
+          "read",
+          "update",
+          "delete"
+        ]
+      }
+    },
+    "/logs": {
+      "name": "/logs",
+      "lambdaFunction": "coordinatece970dec",
+      "permissions": {
+        "setting": "private",
+        "auth": [
+          "create",
+          "read",
+          "update",
+          "delete"
+        ]
+      }
     }
   }
 }
