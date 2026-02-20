@@ -39,6 +39,11 @@ dependencies:
   camera: ^0.11.0+2
   path_provider: ^2.1.2
   path: ^1.9.0
+  amplify_flutter: ^2.0.0
+  amplify_auth_cognito: ^2.0.0
+  amplify_authenticator: ^2.0.0 # UIを爆速で作るための公式ライブラリ
+  amplify_api: ^2.0.0
+  amplify_storage_s3: ^2.0.0
 
 
 dev_dependencies:
