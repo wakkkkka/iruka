@@ -1,14 +1,21 @@
 import json
 import os
 import traceback
+import base64
 import uuid
+import re
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Union
+from urllib import request as urllib_request
+from urllib.error import URLError, HTTPError
 
 import boto3
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key
+
+
+_GEMINI_API_KEY_CACHE: Optional[str] = None
 
 
 _DEFAULT_HEADERS = {
@@ -17,6 +24,42 @@ _DEFAULT_HEADERS = {
     "Access-Control-Allow-Methods": "DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT",
     "Content-Type": "application/json",
 }
+
+
+_GEMINI_MASTER_PROMPT = """
+あなたはファッション専門の画像解析AIです。
+送られた自撮り写真から「トップス」、「ボトムス」、「アウター」を特定し、指定されたマスタータグに従ってJSON形式で出力してください。
+
+# 厳守ルール
+- 以下のマスタータグは厳守し、以下に記載されていないタグを使用することは絶対にやめてください。
+- 検出できなかったアイテムや空のオブジェクト（{}）は、絶対に出力に含めないでください。
+- JSON形式以外のテキストは一切含めないでください。
+- 出力は純粋なJSONのみとし、Markdownのコードブロック（```json ... ```）は絶対に使用しないでください。
+
+
+# 厳守するマスタータグ定義
+- category: tops, bottoms, outer, dress, shoes
+- subCategory: t-shirt, shirt/blouse, knit/sweater, sweatshirt/hoodie, denim/jeans, slacks/pants, skirt, shorts, jacket/coat, cardigan, one-piece, setup, sneakers, leather/pumps, boots, sandals
+- color: white, black, gray, brown, beige, blue, navy, green, yellow, orange, red, pink, purple, gold, silver, denim, multi-color
+- sleeveLength: short, half, long
+- hemLength: short, half, long
+- season: spring, summer, fall, winter
+- scene: casual, business, feminine, other
+
+# 出力形式 (JSON)
+{
+    \"detected_items\": [
+        {
+            \"category\": \"tops\",
+            \"subCategory\": \"t-shirt\",
+            \"color\": \"white\",
+            \"sleeveLength\": \"short\",
+            \"season\": [\"spring\",\"summer\"],
+            \"scene\": \"casual\"
+        }
+    ]
+}
+""".strip()
 
 
 def _json_default(o: Any):
@@ -96,6 +139,467 @@ def _get_table():
     return boto3.resource("dynamodb").Table(table_name)
 
 
+def _get_wearlog_table():
+    table_name = os.environ.get("WEARLOG_TABLE_NAME")
+    if not table_name:
+        raise RuntimeError("WEARLOG_TABLE_NAME is not set")
+    return boto3.resource("dynamodb").Table(table_name)
+
+
+def _get_api_path(event) -> str:
+    path = (event.get("path") or "").strip()
+    if not path:
+        return ""
+    # API Gateway includes stage in some fields, but event['path'] is typically stage-less.
+    return "/" + path.strip("/")
+
+
+def _download_image_bytes(*, selfie_url: Optional[str], selfie_key: Optional[str]) -> bytes:
+    if selfie_url and selfie_url.strip():
+        url = selfie_url.strip()
+        try:
+            req = urllib_request.Request(url, headers={"User-Agent": "amplify-lambda"})
+            with urllib_request.urlopen(req, timeout=20) as resp:
+                return resp.read()
+        except HTTPError as e:
+            raise RuntimeError(f"Failed to fetch selfieUrl: HTTP {e.code}")
+        except URLError as e:
+            raise RuntimeError(f"Failed to fetch selfieUrl: {e}")
+
+    if selfie_key and selfie_key.strip():
+        bucket = (os.environ.get("SELFIE_BUCKET_NAME") or "").strip()
+        if not bucket:
+            raise RuntimeError("SELFIE_BUCKET_NAME is not set (or pass selfieUrl)")
+        s3 = boto3.client("s3")
+        try:
+            obj = s3.get_object(Bucket=bucket, Key=selfie_key.strip())
+            return obj["Body"].read()
+        except ClientError as e:
+            raise RuntimeError(f"Failed to fetch S3 object: {str(e)}")
+
+    raise ValueError("selfieUrl or selfieKey is required")
+
+
+def _get_gemini_api_key() -> str:
+    """Resolve Gemini API key.
+
+    Priority:
+    1) Environment variable GEMINI_API_KEY (useful for local/dev)
+    2) SSM Parameter Store SecureString pointed by GEMINI_API_KEY_SSM_PARAM
+    """
+
+    global _GEMINI_API_KEY_CACHE
+    if _GEMINI_API_KEY_CACHE:
+        return _GEMINI_API_KEY_CACHE
+
+    direct = (os.environ.get("GEMINI_API_KEY") or "").strip()
+    if direct:
+        _GEMINI_API_KEY_CACHE = direct
+        return direct
+
+    param_name = (os.environ.get("GEMINI_API_KEY_SSM_PARAM") or "").strip()
+    if not param_name:
+        raise RuntimeError(
+            "GEMINI_API_KEY is not set (and GEMINI_API_KEY_SSM_PARAM is not set). "
+            "Set GEMINI_API_KEY for quick testing, or configure SSM parameter name in GEMINI_API_KEY_SSM_PARAM."
+        )
+
+    try:
+        ssm = boto3.client("ssm")
+        resp = ssm.get_parameter(Name=param_name, WithDecryption=True)
+        value = (((resp or {}).get("Parameter") or {}).get("Value") or "").strip()
+        if not value:
+            raise RuntimeError(f"SSM parameter is empty: {param_name}")
+        _GEMINI_API_KEY_CACHE = value
+        return value
+    except ClientError as e:
+        raise RuntimeError(f"Failed to read SSM parameter {param_name}: {str(e)}")
+
+
+def _gemini_detect_items(image_bytes: bytes) -> List[Dict[str, str]]:
+    api_key = _get_gemini_api_key()
+
+    primary_model = (os.environ.get("GEMINI_MODEL") or "gemini-1.5-flash-latest").strip()
+
+    prompt = _GEMINI_MASTER_PROMPT
+
+    body = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "inline_data": {
+                            "mime_type": "image/jpeg",
+                            "data": base64.b64encode(image_bytes).decode("ascii"),
+                        }
+                    },
+                    {"text": prompt},
+                ]
+            }
+        ]
+    }
+
+    def _gemini_generate_content(*, model_name: str) -> str:
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+            f"?key={api_key}"
+        )
+        data = json.dumps(body).encode("utf-8")
+        req = urllib_request.Request(
+            url,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib_request.urlopen(req, timeout=25) as resp:
+            return resp.read().decode("utf-8")
+
+    def _gemini_list_models() -> List[Dict[str, Any]]:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+        req = urllib_request.Request(url, headers={"Content-Type": "application/json"}, method="GET")
+        with urllib_request.urlopen(req, timeout=20) as resp:
+            raw = resp.read().decode("utf-8")
+        decoded = json.loads(raw)
+        models = decoded.get("models")
+        if isinstance(models, list):
+            return [m for m in models if isinstance(m, dict)]
+        return []
+
+    def _supports_generate_content(model_obj: Dict[str, Any]) -> bool:
+        methods = model_obj.get("supportedGenerationMethods")
+        if not isinstance(methods, list):
+            return False
+        return any(isinstance(m, str) and m == "generateContent" for m in methods)
+
+    def _pick_fallback_model(models: List[Dict[str, Any]]) -> Optional[str]:
+        names = []
+        for m in models:
+            if not _supports_generate_content(m):
+                continue
+            name = m.get("name")
+            if isinstance(name, str) and name.startswith("models/"):
+                names.append(name.replace("models/", "", 1))
+            elif isinstance(name, str):
+                names.append(name)
+
+        if not names:
+            return None
+
+        prefer = [
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro-latest",
+            "gemini-1.5-pro",
+            "gemini-pro",
+        ]
+        for p in prefer:
+            if p in names:
+                return p
+
+        # Otherwise, just pick the first available generateContent-capable model.
+        return names[0]
+
+    try:
+        raw = _gemini_generate_content(model_name=primary_model)
+    except HTTPError as e:
+        raw_err = e.read().decode("utf-8") if hasattr(e, "read") else str(e)
+        if e.code == 404:
+            try:
+                models = _gemini_list_models()
+                fallback = _pick_fallback_model(models)
+                if fallback:
+                    raw = _gemini_generate_content(model_name=fallback)
+                else:
+                    available = []
+                    for m in models[:25]:
+                        n = m.get("name")
+                        if isinstance(n, str):
+                            available.append(n)
+                    raise RuntimeError(
+                        "Gemini model not found and no generateContent-capable models available. "
+                        f"Set GEMINI_MODEL to a valid model. Available (sample): {available}"
+                    )
+            except Exception as inner:
+                raise RuntimeError(f"Gemini HTTP 404: {raw_err}\n{type(inner).__name__}: {inner}")
+        raise RuntimeError(f"Gemini HTTP {e.code}: {raw_err}")
+    except URLError as e:
+        raise RuntimeError(f"Gemini request failed: {e}")
+
+    decoded = json.loads(raw)
+    text = ""
+    try:
+        candidates = decoded.get("candidates") or []
+        parts = (((candidates[0] or {}).get("content") or {}).get("parts") or [])
+        for p in parts:
+            if isinstance(p, dict) and isinstance(p.get("text"), str):
+                text += p["text"]
+    except Exception:
+        text = ""
+
+    text = (text or "").strip()
+    if not text:
+        raise RuntimeError(f"Gemini returned no text: {raw}")
+
+    # Try strict JSON parse
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        # Fallback: extract first JSON object-like substring
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            parsed = json.loads(text[start : end + 1])
+        else:
+            raise RuntimeError(f"Gemini output is not JSON: {text[:400]}")
+
+    if not isinstance(parsed, dict):
+        return []
+
+    items = parsed.get("detected_items")
+    if not isinstance(items, list):
+        # backward compatibility for older prompt/schema
+        items = parsed.get("items")
+    if not isinstance(items, list):
+        return []
+
+    normalized: List[Dict[str, str]] = []
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        category = it.get("category")
+        if not isinstance(category, str) or not category.strip():
+            continue
+        sub = it.get("subCategory")
+        color = it.get("color")
+
+        # enforce canonical tags to reduce mismatch (prompt already should do this)
+        cat_norm = _norm_category(category)
+        col_norm = _norm_color(color) if isinstance(color, str) else None
+
+        out: Dict[str, str] = {"category": cat_norm or category.strip()}
+        if isinstance(sub, str) and sub.strip():
+            out["subCategory"] = sub.strip()
+        if isinstance(color, str) and color.strip():
+            out["color"] = col_norm or color.strip().lower()
+        normalized.append(out)
+    return normalized
+
+
+def _score_candidate(detected: Dict[str, str], item: Dict[str, Any]) -> int:
+    score = 0
+
+    det_cat = _norm_category(detected.get("category"))
+    det_col = _norm_color(detected.get("color"))
+    det_sub = _norm_text(detected.get("subCategory"))
+
+    item_cat = _norm_category(item.get("category"))
+    item_col = _norm_color(item.get("color"))
+    item_sub = _norm_text(item.get("subCategory"))
+
+    if det_cat and item_cat and item_cat == det_cat:
+        score += 10
+
+    if det_col and item_col:
+        if item_col == det_col:
+            score += 5
+        else:
+            # tolerate cases like "navy blue" vs "navy" if normalization didn't catch it
+            if det_col in item_col or item_col in det_col:
+                score += 2
+
+    if det_sub and item_sub and item_sub == det_sub:
+        score += 3
+
+    return score
+
+
+def _handle_analyze(event, user_id: str):
+    payload = _parse_json_body(event)
+    selfie_key = payload.get("selfieKey")
+    selfie_url = payload.get("selfieUrl")
+    top_k = payload.get("topK")
+    if not isinstance(top_k, int) or top_k <= 0 or top_k > 10:
+        top_k = 3
+
+    image_bytes = _download_image_bytes(
+        selfie_url=selfie_url if isinstance(selfie_url, str) else None,
+        selfie_key=selfie_key if isinstance(selfie_key, str) else None,
+    )
+
+    detected_items = _gemini_detect_items(image_bytes)
+    table = _get_table()
+    gsi_name = os.environ.get("CLOTHES_GSI_NAME", "byCategoryAndColor")
+
+    print(
+        "Analyze detected_items=",
+        detected_items,
+    )
+
+    results: List[Dict[str, Any]] = []
+    for detected in detected_items:
+        category = detected.get("category")
+        color = detected.get("color")
+        category_color = _category_color(category, color)
+        category_color_norm = _category_color_norm(category, color)
+
+        candidates: List[Dict[str, Any]] = []
+        try:
+            if category_color:
+                resp = table.query(
+                    IndexName=gsi_name,
+                    KeyConditionExpression=Key("userId").eq(user_id)
+                    & Key("categoryColor").eq(category_color),
+                )
+                candidates = resp.get("Items") or []
+
+            # If nothing matched, try normalized key (covers cases like "紺" vs "navy" if stored normalized)
+            if not candidates and category_color_norm and category_color_norm != category_color:
+                resp = table.query(
+                    IndexName=gsi_name,
+                    KeyConditionExpression=Key("userId").eq(user_id)
+                    & Key("categoryColor").eq(category_color_norm),
+                )
+                candidates = resp.get("Items") or []
+
+            # Final fallback: query all for user and filter by normalized category/color
+            if not candidates:
+                resp = table.query(KeyConditionExpression=Key("userId").eq(user_id))
+                all_items = resp.get("Items") or []
+                det_cat = _norm_category(category)
+                det_col = _norm_color(color)
+                filtered = []
+                for it in all_items:
+                    if det_cat and _norm_category(it.get("category")) != det_cat:
+                        continue
+                    if det_col and _norm_color(it.get("color")) != det_col:
+                        # allow category-only match if color mismatch
+                        continue
+                    filtered.append(it)
+
+                # If still empty and we had a color, relax to category-only.
+                if not filtered and det_cat:
+                    for it in all_items:
+                        if _norm_category(it.get("category")) == det_cat:
+                            filtered.append(it)
+
+                candidates = filtered
+        except ClientError as e:
+            return _response(500, {"ok": False, "error": str(e)})
+
+        print(
+            "Analyze match",
+            {
+                "detected": detected,
+                "categoryColor": category_color,
+                "categoryColorNorm": category_color_norm,
+                "candidatesCount": len(candidates),
+            },
+        )
+
+        scored = []
+        for c in candidates:
+            s = _score_candidate(detected, c)
+            scored.append((s, c))
+        scored.sort(key=lambda t: t[0], reverse=True)
+
+        top = []
+        for s, c in scored[:top_k]:
+            top.append(
+                {
+                    "clothesId": c.get("clothesId"),
+                    "category": c.get("category"),
+                    "subCategory": c.get("subCategory"),
+                    "color": c.get("color"),
+                    "imageUrl": c.get("imageUrl"),
+                    "score": s,
+                }
+            )
+
+        results.append({"detected": detected, "candidates": top})
+
+    return _response(200, {"ok": True, "results": results})
+
+
+def _parse_iso_date(value: str) -> str:
+    v = (value or "").strip()
+    datetime.strptime(v, "%Y-%m-%d")
+    return v
+
+
+def _handle_logs_get(event, user_id: str):
+    q = event.get("queryStringParameters") or {}
+    from_s = q.get("from")
+    to_s = q.get("to")
+
+    # default: last 30 days
+    now = datetime.now()
+    if not isinstance(from_s, str) or not from_s.strip():
+        from_s = (now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=30)).strftime(
+            "%Y-%m-%d"
+        )
+    if not isinstance(to_s, str) or not to_s.strip():
+        to_s = now.strftime("%Y-%m-%d")
+
+    from_s = _parse_iso_date(from_s)
+    to_s = _parse_iso_date(to_s)
+
+    start = f"{from_s}#"
+    end = f"{to_s}#\uffff"
+
+    table = _get_wearlog_table()
+    try:
+        resp = table.query(
+            KeyConditionExpression=Key("userId").eq(user_id) & Key("logId").between(start, end)
+        )
+    except ClientError as e:
+        return _response(500, {"ok": False, "error": str(e)})
+
+    items = resp.get("Items") or []
+    # newest first
+    items.sort(key=lambda x: (x.get("date") or "", x.get("logId") or ""), reverse=True)
+    return _response(200, {"ok": True, "items": items})
+
+
+def _handle_logs_post(event, user_id: str):
+    payload = _parse_json_body(event)
+    date = payload.get("date")
+    if not isinstance(date, str) or not date.strip():
+        return _response(400, {"ok": False, "error": "date is required"})
+    date = _parse_iso_date(date)
+
+    log_id = f"{date}#{uuid.uuid4()}"
+    created_at = _now_epoch_seconds()
+
+    selections = payload.get("selections")
+    if selections is not None and not isinstance(selections, dict):
+        return _response(400, {"ok": False, "error": "selections must be an object"})
+
+    clothes_ids = payload.get("clothesIds")
+    if clothes_ids is not None and not isinstance(clothes_ids, list):
+        return _response(400, {"ok": False, "error": "clothesIds must be an array"})
+
+    item = {
+        "userId": user_id,
+        "logId": log_id,
+        "date": date,
+        "selfieKey": payload.get("selfieKey"),
+        "selections": selections,
+        "clothesIds": clothes_ids,
+        "createdAt": created_at,
+    }
+    item = {k: v for k, v in item.items() if v is not None}
+
+    table = _get_wearlog_table()
+    try:
+        table.put_item(Item=item, ConditionExpression="attribute_not_exists(logId)")
+    except ClientError as e:
+        return _response(500, {"ok": False, "error": str(e)})
+
+    return _response(201, {"ok": True, "item": item})
+
+
 def _get_clothes_id_from_event(event) -> Optional[str]:
     path_params = event.get("pathParameters") or {}
     proxy = path_params.get("proxy")
@@ -115,6 +619,82 @@ def _category_color(category: Optional[str], color: Optional[str]) -> Optional[s
     if not category or not color:
         return None
     return f"{category}#{color}"
+
+
+def _norm_text(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        value = str(value)
+    v = value.strip().lower()
+    if not v:
+        return None
+    v = re.sub(r"\s+", " ", v)
+    return v
+
+
+def _norm_category(value: Optional[str]) -> Optional[str]:
+    v = _norm_text(value)
+    if not v:
+        return None
+
+    # canonical categories used in this app
+    if v in {"tops", "top", "トップス", "シャツ", "t-shirt", "tshirt", "tee", "shirt", "blouse"}:
+        return "tops"
+    if v in {"bottoms", "bottom", "ボトムス", "パンツ", "ズボン", "skirt", "スカート"}:
+        return "bottoms"
+    if v in {"outer", "アウター", "コート", "ジャケット", "coat", "jacket"}:
+        return "outer"
+    if v in {"shoes", "shoe", "シューズ", "靴", "sneakers", "sneaker"}:
+        return "shoes"
+
+    # heuristic contains
+    if "トップ" in v or "シャツ" in v or "tshirt" in v or "t-shirt" in v or "shirt" in v:
+        return "tops"
+    if "ボトム" in v or "パンツ" in v or "ズボン" in v or "skirt" in v:
+        return "bottoms"
+    if "アウター" in v or "コート" in v or "ジャケット" in v or "outer" in v:
+        return "outer"
+    if "靴" in v or "シュー" in v or "shoe" in v or "sneaker" in v:
+        return "shoes"
+
+    return v
+
+
+def _norm_color(value: Optional[str]) -> Optional[str]:
+    v = _norm_text(value)
+    if not v:
+        return None
+
+    # normalize common variants
+    if "navy" in v or "紺" in v:
+        return "navy"
+    if "black" in v or "黒" in v:
+        return "black"
+    if "white" in v or "白" in v:
+        return "white"
+    if "gray" in v or "grey" in v or "グレー" in v or "灰" in v:
+        return "gray"
+    if "beige" in v or "ベージュ" in v:
+        return "beige"
+    if "brown" in v or "茶" in v:
+        return "brown"
+    if "blue" in v or "青" in v:
+        return "blue"
+    if "red" in v or "赤" in v:
+        return "red"
+    if "green" in v or "緑" in v:
+        return "green"
+
+    return v
+
+
+def _category_color_norm(category: Optional[str], color: Optional[str]) -> Optional[str]:
+    c = _norm_category(category)
+    col = _norm_color(color)
+    if not c or not col:
+        return None
+    return f"{c}#{col}"
 
 
 def _handle_get_list(event, user_id: str):
@@ -318,6 +898,20 @@ def handler(event, context):
             return _response(401, {"ok": False, "error": "Unauthorized"})
 
         method = (event.get("httpMethod") or "").upper()
+        path = _get_api_path(event)
+
+        if path.endswith("/analyze"):
+            if method != "POST":
+                return _response(405, {"ok": False, "error": "Method not allowed"})
+            return _handle_analyze(event, user_id)
+
+        if path.endswith("/logs"):
+            if method == "GET":
+                return _handle_logs_get(event, user_id)
+            if method == "POST":
+                return _handle_logs_post(event, user_id)
+            return _response(405, {"ok": False, "error": "Method not allowed"})
+
         clothes_id = _get_clothes_id_from_event(event)
 
         if method == "GET" and clothes_id is None:
