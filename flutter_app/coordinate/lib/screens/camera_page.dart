@@ -28,6 +28,9 @@ class _CameraPageState extends State<CameraPage> {
         setState(() => _imageFile = photo);
       }
     } catch (e) {
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('エラー: $e')),
       );

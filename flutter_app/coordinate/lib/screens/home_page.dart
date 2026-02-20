@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'calendar_page.dart';
 import 'settings_page.dart';
 import 'statistics_page.dart';
-import 'camera_page.dart';
+import 'clothes_camera_page.dart';
+import 'selfie_camera_page.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -126,27 +127,27 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   children: [
                     _buildCircleMenuButton(
-                      icon: Icons.camera_front,
-                      label: '自撮り',
-                      onTap: () {
-                        _hideCameraMenu();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const CameraPage()),
-                        );
-                      },
+                        icon: Icons.camera_front,
+                        label: '着用記録',
+                        onTap: () {
+                          _hideCameraMenu();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const SelfieCameraPage()),
+                          );
+                        },
                     ),
                     const SizedBox(height: 16),
                     _buildCircleMenuButton(
-                      icon: Icons.add_a_photo,
-                      label: '新規登録',
-                      onTap: () {
-                        _hideCameraMenu();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const CameraPage()),
-                        );
-                      },
+                        icon: Icons.add_a_photo,
+                        label: '新規服登録',
+                        onTap: () {
+                          _hideCameraMenu();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const ClothesCameraPage()),
+                          );
+                        },
                     ),
                   ],
                 ),
