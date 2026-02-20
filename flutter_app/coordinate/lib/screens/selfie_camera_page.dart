@@ -187,7 +187,7 @@ class _SelfieCameraPageState extends State<SelfieCameraPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         ElevatedButton(
-          onPressed: () => print("画像確定: ${_imageFile!.path}"),
+          onPressed: () => debugPrint("画像確定: \\${_imageFile!.path}"),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white,
             foregroundColor: Colors.black,

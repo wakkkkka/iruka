@@ -2,6 +2,8 @@ import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:flutter/material.dart';
 
 import '../services/clothes_api_service.dart';
+import '../services/local_storage.dart';
+import '../models/wear_item.dart';
 
 class ClothesDetailPage extends StatefulWidget {
   const ClothesDetailPage({super.key, required this.clothesId});
@@ -14,6 +16,7 @@ class ClothesDetailPage extends StatefulWidget {
 
 class _ClothesDetailPageState extends State<ClothesDetailPage> {
   final ClothesApiService _clothesApiService = ClothesApiService();
+  final LocalStorage _localStorage = LocalStorage();
 
   bool _loading = true;
   bool _saving = false;
@@ -154,8 +157,34 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
 
       if (!mounted) return;
 
+      // ローカル保存用WearItem作成
+      final wearItem = WearItem(
+        id: updated['id'] ?? widget.clothesId,
+        userId: updated['userId'] ?? '',
+        category: updated['category'] ?? '',
+        color: updated['color'] ?? '',
+        itemName: updated['name'] ?? '',
+        tags: (updated['tags'] is List)
+            ? List<String>.from(updated['tags'])
+            : <String>[],
+        imageUrl: updated['imageUrl'],
+        createdAt: DateTime.tryParse(updated['createdAt'] ?? '') ?? DateTime.now(),
+      );
+      // 既存リストを取得し、同じIDなら置換、なければ追加
+      final items = await _localStorage.loadItems();
+      final idx = items.indexWhere((e) => e.id == wearItem.id);
+      if (idx >= 0) {
+        items[idx] = wearItem;
+      } else {
+        items.add(wearItem);
+      }
+      await _localStorage.saveItems(items);
+
       final imageUrl = (updated['imageUrl'] ?? '').toString();
       _imageUrlFuture = _resolveImageUrlIfNeeded(imageUrl);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ローカルに保存しました')),
+      );
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;

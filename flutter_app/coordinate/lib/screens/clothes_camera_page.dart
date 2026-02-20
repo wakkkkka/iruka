@@ -3,6 +3,7 @@ import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:coordinate/screens/clothes_detail_page.dart';
 
 class ClothesCameraPage extends StatefulWidget {
   const ClothesCameraPage({super.key});
@@ -16,6 +17,10 @@ class _ClothesCameraPageState extends State<ClothesCameraPage> {
   bool _isCameraInitialized = false;
   XFile? _imageFile; // 撮影・選択されたファイルを保持
   final ImagePicker _picker = ImagePicker();
+
+  // タグ入力用
+
+  // 仮ユーザーID（本来はログイン情報から取得）
 
   @override
   void initState() {
@@ -52,8 +57,15 @@ class _ClothesCameraPageState extends State<ClothesCameraPage> {
   Future<void> _takePicture() async {
     if (!_isCameraInitialized || _cameraController!.value.isTakingPicture) return;
     try {
-      final XFile photo = await _cameraController!.takePicture();
-      setState(() => _imageFile = photo);
+      await _cameraController!.takePicture();
+      // 画像決定後に詳細画面へ遷移
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ClothesDetailPage(clothesId: ''),
+        ),
+      );
     } catch (e) {
       debugPrint("撮影エラー: $e");
     }
@@ -64,7 +76,14 @@ class _ClothesCameraPageState extends State<ClothesCameraPage> {
     try {
       final photo = await _picker.pickImage(source: ImageSource.gallery);
       if (photo != null) {
-        setState(() => _imageFile = photo);
+        // 画像決定後に詳細画面へ遷移
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ClothesDetailPage(clothesId: ''),
+          ),
+        );
       }
     } catch (e) {
       debugPrint("ギャラリーエラー: $e");
@@ -143,41 +162,17 @@ class _ClothesCameraPageState extends State<ClothesCameraPage> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
+          colors: [Colors.transparent, Colors.black.withAlpha(180)],
         ),
       ),
-      child: _imageFile == null
-          ? Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _actionButton(Icons.image, "ギャラリー", _pickImageFromGallery),
-                _shutterButton(),
-                // スペース調整用の空要素（左右バランスのため）
-                const SizedBox(width: 60),
-              ],
-            )
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton(
-                  onPressed: () => print("画像確定: ${_imageFile!.path}"),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                  ),
-                  child: const Text("この写真で服を登録する"),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _actionButton(Icons.refresh, "撮り直す", () {
-                      setState(() => _imageFile = null);
-                    }),
-                    _actionButton(Icons.image, "ギャラリー", _pickImageFromGallery),
-                  ],
-                ),
-              ],
-            ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _actionButton(Icons.image, "ギャラリー", _pickImageFromGallery),
+          _shutterButton(),
+          const SizedBox(width: 60),
+        ],
+      ),
     );
   }
 
