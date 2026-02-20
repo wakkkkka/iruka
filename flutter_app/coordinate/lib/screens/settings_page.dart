@@ -324,6 +324,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
               ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('カメラで撮影'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.close),
                 title: const Text('キャンセル'),
                 onTap: () => Navigator.pop(ctx),
