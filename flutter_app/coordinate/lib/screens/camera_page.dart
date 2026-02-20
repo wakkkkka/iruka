@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'review_page.dart';
 
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key});
@@ -99,7 +100,12 @@ class _CameraPageState extends State<CameraPage> {
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    print("画像確定: ${_imageFile!.path}");
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ReviewPage(imagePath: _imageFile!.path),
+                      ),
+                    );
                   },
                   child: const Text("この写真で解析する"),
                 ),

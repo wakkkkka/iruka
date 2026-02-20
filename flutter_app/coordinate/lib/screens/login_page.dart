@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -50,15 +51,37 @@ class _LoginPageState extends State<LoginPage> {
       _passwordController.text,
     );
 
+    if (!mounted) return;
+
+    // デバッグ出力
+    print('signIn result: isSignedIn=${result.isSignedIn}, error=${result.errorMessage}');
+
+    if (result.isSignedIn) {
+      Navigator.pushReplacementNamed(context, '/home');
+      return;
+    }
+
+    // デバッグ時は一時的に認証をバイパスして画面遷移させる
+    if (kDebugMode) {
+      final debugMsg = 'デバッグモード: 認証をバイパスしてホームへ遷移します';
+      print(debugMsg);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(debugMsg)),
+      );
+      Navigator.pushReplacementNamed(context, '/home');
+      return;
+    }
+
+    // 通常の失敗処理
+    final msg = result.errorMessage ?? 'ログインに失敗しました。メールアドレスとパスワードを確認してください。';
+    setState(() {
+      _errorMessage = msg;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
+
     if (mounted) {
-      if (result.isSignedIn) {
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        setState(() {
-          _errorMessage =
-              result.errorMessage ?? 'ログインに失敗しました。メールアドレスとパスワードを確認してください。';
-        });
-      }
       setState(() {
         _isLoading = false;
       });
@@ -137,6 +160,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
               ),
+              
             ],
           ),
         ),
