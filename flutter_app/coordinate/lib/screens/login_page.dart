@@ -61,16 +61,7 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    // デバッグ時は一時的に認証をバイパスして画面遷移させる
-    if (kDebugMode) {
-      final debugMsg = 'デバッグモード: 認証をバイパスしてホームへ遷移します';
-      print(debugMsg);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(debugMsg)),
-      );
-      Navigator.pushReplacementNamed(context, '/home');
-      return;
-    }
+    // デバッグモードでも認証必須（本番環境と同じ挙動に修正）
 
     // 通常の失敗処理
     final msg = result.errorMessage ?? 'ログインに失敗しました。メールアドレスとパスワードを確認してください。';
