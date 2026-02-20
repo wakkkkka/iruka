@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
+import 'package:amplify_api/amplify_api.dart';
+import 'package:amplify_storage_s3/amplify_storage_s3.dart';
 import 'package:camera/camera.dart'; // 1. 追加
 import 'amplifyconfiguration.dart';
 import 'screens/login_page.dart';
@@ -25,7 +27,7 @@ Future<void> main() async {
     // 4. デバイス上のカメラ（背面・前面など）をすべて取得
     cameras = await availableCameras();
   } on CameraException catch (e) {
-    print('カメラの取得に失敗しました: ${e.description}');
+    safePrint('カメラの取得に失敗しました: ${e.description}');
   }
 
   runApp(const MyApp());
@@ -37,20 +39,24 @@ Future<void> _initAmplify() async {
       return;
     }
     final auth = AmplifyAuthCognito();
+    final api = AmplifyAPI();
+    final storage = AmplifyStorageS3();
     await Amplify.addPlugin(auth);
+    await Amplify.addPlugin(api);
+    await Amplify.addPlugin(storage);
     final config = kIsWeb ? amplifyconfigWeb : amplifyconfig;
     await Amplify.configure(config);
-    print('Amplifyが正常に初期化されました');
+    safePrint('Amplifyが正常に初期化されました');
   } on ConfigurationError catch (e) {
-    print('Amplify設定エラー: ${e.message}');
-    print(
+    safePrint('Amplify設定エラー: ${e.message}');
+    safePrint(
       'Amplifyの設定ファイルが不足しています。開発環境の場合は、`amplify pull`コマンドでバックエンド設定を同期してください。',
     );
   } on AmplifyAlreadyConfiguredException {
     // Hot restart 等で二重に configure されても問題ないように握りつぶす
     return;
   } catch (e) {
-    print('Amplify初期化エラー: $e');
+    safePrint('Amplify初期化エラー: $e');
   }
 }
 

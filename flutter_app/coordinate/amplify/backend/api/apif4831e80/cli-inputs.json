@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "paths": {
+    "/clothes": {
+      "name": "/clothes",
+      "lambdaFunction": "coordinatece970dec",
+      "permissions": {
+        "setting": "private",
+        "auth": [
+          "create",
+          "read",
+          "update",
+          "delete"
+        ]
+      }
+    }
+  }
+}
