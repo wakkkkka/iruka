@@ -393,7 +393,6 @@ class _CameraPageState extends State<CameraPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('記録に失敗しました: $e')));
->>>>>>> origin/main
     } finally {
       if (mounted) {
         setState(() {
