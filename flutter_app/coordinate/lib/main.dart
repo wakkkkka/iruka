@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
+import 'package:amplify_api/amplify_api.dart';
 import 'package:camera/camera.dart'; // 1. 追加
 import 'amplifyconfiguration.dart';
 import 'screens/login_page.dart';
@@ -34,7 +35,9 @@ Future<void> _initAmplify() async {
       return;
     }
     final auth = AmplifyAuthCognito();
+    final api = AmplifyAPI();
     await Amplify.addPlugin(auth);
+    await Amplify.addPlugin(api);
     final config = kIsWeb ? amplifyconfigWeb : amplifyconfig;
     await Amplify.configure(config);
     print('Amplifyが正常に初期化されました');
