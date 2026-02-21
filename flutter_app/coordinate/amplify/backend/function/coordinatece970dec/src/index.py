@@ -216,7 +216,7 @@ def _get_gemini_api_key() -> str:
         raise RuntimeError(f"Failed to read SSM parameter {param_name}: {str(e)}")
 
 
-def _gemini_detect_items(image_bytes: bytes) -> List[Dict[str, str]]:
+def _gemini_detect_items(image_bytes: bytes) -> List[Dict[str, Any]]:
     api_key = _get_gemini_api_key()
 
     primary_model = (os.environ.get("GEMINI_MODEL") or "gemini-1.5-flash-latest").strip()
@@ -364,7 +364,7 @@ def _gemini_detect_items(image_bytes: bytes) -> List[Dict[str, str]]:
     if not isinstance(items, list):
         return []
 
-    normalized: List[Dict[str, str]] = []
+    normalized: List[Dict[str, Any]] = []
     for it in items:
         if not isinstance(it, dict):
             continue
@@ -374,43 +374,108 @@ def _gemini_detect_items(image_bytes: bytes) -> List[Dict[str, str]]:
         sub = it.get("subCategory")
         color = it.get("color")
 
+        sleeve = it.get("sleeveLength")
+        hem = it.get("hemLength")
+        scene = it.get("scene")
+        season = it.get("season")
+
         # enforce canonical tags to reduce mismatch (prompt already should do this)
         cat_norm = _norm_category(category)
         col_norm = _norm_color(color) if isinstance(color, str) else None
 
-        out: Dict[str, str] = {"category": cat_norm or category.strip()}
+        out: Dict[str, Any] = {"category": cat_norm or category.strip()}
         if isinstance(sub, str) and sub.strip():
             out["subCategory"] = sub.strip()
         if isinstance(color, str) and color.strip():
             out["color"] = col_norm or color.strip().lower()
+
+        if isinstance(sleeve, str) and sleeve.strip():
+            out["sleeveLength"] = _norm_text(sleeve) or sleeve.strip()
+        if isinstance(hem, str) and hem.strip():
+            out["hemLength"] = _norm_text(hem) or hem.strip()
+        if isinstance(scene, str) and scene.strip():
+            out["scene"] = _norm_text(scene) or scene.strip()
+        if isinstance(season, list):
+            cleaned = [
+                _norm_text(x) or str(x).strip()
+                for x in season
+                if str(x).strip()
+            ]
+            cleaned = [x for x in cleaned if x]
+            if cleaned:
+                out["season"] = cleaned
+
         normalized.append(out)
     return normalized
 
 
-def _score_candidate(detected: Dict[str, str], item: Dict[str, Any]) -> int:
+def _current_season_jst() -> str:
+    # Simple month-based season for Japan.
+    # spring: Mar-May, summer: Jun-Aug, fall: Sep-Nov, winter: Dec-Feb
+    jst = timezone(timedelta(hours=9))
+    m = datetime.now(jst).month
+    if 3 <= m <= 5:
+        return "spring"
+    if 6 <= m <= 8:
+        return "summer"
+    if 9 <= m <= 11:
+        return "fall"
+    return "winter"
+
+
+def _coerce_season_list(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, (set, tuple, list)):
+        out = []
+        for x in value:
+            v = _norm_text(x) or str(x).strip()
+            if v:
+                out.append(v)
+        return out
+    v = _norm_text(value) or str(value).strip()
+    return [v] if v else []
+
+
+def _score_candidate(detected: Dict[str, Any], item: Dict[str, Any]) -> int:
+    """Weighted scoring for matching detected tags to closet items.
+
+    Weights (additive):
+    - subCategory: +50 (exact)
+    - sleeveLength: +20 (exact)
+    - hemLength: +20 (exact)
+    - scene: +10 (exact)
+    - season: +10 (current season included in item's season)
+    """
+
     score = 0
 
-    det_cat = _norm_category(detected.get("category"))
-    det_col = _norm_color(detected.get("color"))
     det_sub = _norm_text(detected.get("subCategory"))
+    det_sleeve = _norm_text(detected.get("sleeveLength"))
+    det_hem = _norm_text(detected.get("hemLength"))
+    det_scene = _norm_text(detected.get("scene"))
 
-    item_cat = _norm_category(item.get("category"))
-    item_col = _norm_color(item.get("color"))
     item_sub = _norm_text(item.get("subCategory"))
+    item_sleeve = _norm_text(item.get("sleeveLength"))
+    item_hem = _norm_text(item.get("hemLength"))
+    item_scene = _norm_text(item.get("scene"))
 
-    if det_cat and item_cat and item_cat == det_cat:
+    if det_sub and item_sub and det_sub == item_sub:
+        score += 50
+
+    if det_sleeve and item_sleeve and det_sleeve == item_sleeve:
+        score += 20
+
+    if det_hem and item_hem and det_hem == item_hem:
+        score += 20
+
+    if det_scene and item_scene and det_scene == item_scene:
         score += 10
 
-    if det_col and item_col:
-        if item_col == det_col:
-            score += 5
-        else:
-            # tolerate cases like "navy blue" vs "navy" if normalization didn't catch it
-            if det_col in item_col or item_col in det_col:
-                score += 2
-
-    if det_sub and item_sub and item_sub == det_sub:
-        score += 3
+    current = _current_season_jst()
+    item_seasons = _coerce_season_list(item.get("season"))
+    if current in item_seasons:
+        score += 10
 
     return score
 
@@ -438,6 +503,7 @@ def _handle_analyze(event, user_id: str):
     )
 
     results: List[Dict[str, Any]] = []
+    no_match_threshold = 20
     for detected in detected_items:
         category = detected.get("category")
         color = detected.get("color")
@@ -504,6 +570,9 @@ def _handle_analyze(event, user_id: str):
             scored.append((s, c))
         scored.sort(key=lambda t: t[0], reverse=True)
 
+        best_score = scored[0][0] if scored else 0
+        needs_register = best_score <= no_match_threshold
+
         top = []
         for s, c in scored[:top_k]:
             top.append(
@@ -512,12 +581,23 @@ def _handle_analyze(event, user_id: str):
                     "category": c.get("category"),
                     "subCategory": c.get("subCategory"),
                     "color": c.get("color"),
+                    "sleeveLength": c.get("sleeveLength"),
+                    "hemLength": c.get("hemLength"),
+                    "season": c.get("season"),
+                    "scene": c.get("scene"),
                     "imageUrl": c.get("imageUrl"),
                     "score": s,
                 }
             )
 
-        results.append({"detected": detected, "candidates": top})
+        results.append(
+            {
+                "detected": detected,
+                "candidates": top,
+                "bestScore": best_score,
+                "needsRegister": needs_register,
+            }
+        )
 
     return _response(200, {"ok": True, "results": results})
 
