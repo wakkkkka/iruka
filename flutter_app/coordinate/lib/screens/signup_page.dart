@@ -235,10 +235,11 @@ class _SignupPageState extends State<SignupPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Text('既にアカウントをお持ちですか？ '),
+                    const Text('既にアカウントをお持ちですか？'),
                     TextButton(
                       onPressed: _isLoading
                           ? null
