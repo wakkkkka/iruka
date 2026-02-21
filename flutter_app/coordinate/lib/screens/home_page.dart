@@ -7,6 +7,7 @@ import 'clothes_camera_page.dart';
 import 'selfie_camera_page.dart';
 import 'clothes_detail_page.dart';
 import '../services/clothes_api_service.dart';
+import '../constants/clothes_options.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -81,16 +82,27 @@ class _HomePageState extends State<HomePage> {
     final hemLength = item['hemLength'];
 
     if (subCategory is String && subCategory.trim().isNotEmpty) {
-      parts.add(subCategory.trim());
+      parts.add(
+        ClothesOptions.labelFor(
+          subCategory.trim(),
+          ClothesOptions.subCategoryLabels,
+        ),
+      );
     }
     if (color is String && color.trim().isNotEmpty) {
-      parts.add('色: ${color.trim()}');
+      parts.add(
+        '色: ${ClothesOptions.labelFor(color.trim(), ClothesOptions.colorLabels)}',
+      );
     }
     if (sleeveLength is String && sleeveLength.trim().isNotEmpty) {
-      parts.add('袖: ${sleeveLength.trim()}');
+      parts.add(
+        '袖: ${ClothesOptions.labelFor(sleeveLength.trim(), ClothesOptions.sleeveLengthLabels)}',
+      );
     }
     if (hemLength is String && hemLength.trim().isNotEmpty) {
-      parts.add('丈: ${hemLength.trim()}');
+      parts.add(
+        '丈: ${ClothesOptions.labelFor(hemLength.trim(), ClothesOptions.hemLengthLabels)}',
+      );
     }
 
     return parts.isEmpty ? '—' : parts.join(' / ');
@@ -186,7 +198,12 @@ class _HomePageState extends State<HomePage> {
                         : '';
                     final title = name.isNotEmpty
                         ? name
-                        : (category.isNotEmpty ? category : 'アイテム');
+                        : (category.isNotEmpty
+                              ? ClothesOptions.labelFor(
+                                  category,
+                                  ClothesOptions.categoryLabels,
+                                )
+                              : 'アイテム');
                     final subtitle = _buildSubtitle(item);
                     final imageUrl = item['imageUrl'];
 
@@ -359,51 +376,56 @@ class _HomePageState extends State<HomePage> {
         if (_showCameraOverlay)
           Positioned.fill(
             child: Material(
-      color: Colors.transparent, // 背景は透明にする
-      child: GestureDetector(
-        onTap: _hideCameraMenu,
-        child: Container(
-          color: Colors.white.withValues(alpha: 0.85),
-          child: Stack(
-            children: [
-              Positioned(
-                bottom: 85 + 56,
-                right: 16,
-                child: Column(
-                  children: [
-                    _buildCircleMenuButton(
-                        icon: Icons.camera_front,
-                        label: '着用記録',
-                        onTap: () {
-                          _hideCameraMenu();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const SelfieCameraPage()),
-                          );
-                        },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildCircleMenuButton(
-                        icon: Icons.add_a_photo,
-                        label: '新規服登録',
-                        onTap: () {
-                          _hideCameraMenu();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const ClothesCameraPage()),
-                          );
-                        },
-                    ),
-                  ],
-
+              color: Colors.transparent, // 背景は透明にする
+              child: GestureDetector(
+                onTap: _hideCameraMenu,
+                child: Container(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        bottom: 85 + 56,
+                        right: 16,
+                        child: Column(
+                          children: [
+                            _buildCircleMenuButton(
+                              icon: Icons.camera_front,
+                              label: '着用記録',
+                              onTap: () {
+                                _hideCameraMenu();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const SelfieCameraPage(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _buildCircleMenuButton(
+                              icon: Icons.add_a_photo,
+                              label: '新規服登録',
+                              onTap: () {
+                                _hideCameraMenu();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ClothesCameraPage(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-      )
-            )
-    ),
       ],
     );
   }
