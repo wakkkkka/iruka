@@ -1,11 +1,10 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import 'camera_page.dart';
 
 class SelfieCameraPage extends StatefulWidget {
   const SelfieCameraPage({super.key});
@@ -33,7 +32,9 @@ class _SelfieCameraPageState extends State<SelfieCameraPage> {
     if (mounted) setState(() {});
     if (_cameras == null || _cameras!.isEmpty) return;
     if (_cameraController == null) {
-      int frontCamIndex = _cameras!.indexWhere((cam) => cam.lensDirection == CameraLensDirection.front);
+      int frontCamIndex = _cameras!.indexWhere(
+        (cam) => cam.lensDirection == CameraLensDirection.front,
+      );
       if (frontCamIndex != -1) {
         _selectedCameraIndex = frontCamIndex;
       }
@@ -57,10 +58,12 @@ class _SelfieCameraPageState extends State<SelfieCameraPage> {
   Future<void> _toggleCamera() async {
     if (_cameras == null || _cameras!.length < 2) return;
     final currentDirection = _cameras![_selectedCameraIndex].lensDirection;
-    final nextDirection = currentDirection == CameraLensDirection.back 
-        ? CameraLensDirection.front 
+    final nextDirection = currentDirection == CameraLensDirection.back
+        ? CameraLensDirection.front
         : CameraLensDirection.back;
-    int nextIndex = _cameras!.indexWhere((cam) => cam.lensDirection == nextDirection);
+    int nextIndex = _cameras!.indexWhere(
+      (cam) => cam.lensDirection == nextDirection,
+    );
     if (nextIndex == -1) {
       nextIndex = (_selectedCameraIndex + 1) % _cameras!.length;
     }
@@ -72,7 +75,9 @@ class _SelfieCameraPageState extends State<SelfieCameraPage> {
   }
 
   Future<void> _takePicture() async {
-    if (!_isCameraInitialized || _cameraController!.value.isTakingPicture) return;
+    if (!_isCameraInitialized || _cameraController!.value.isTakingPicture) {
+      return;
+    }
     try {
       final XFile photo = await _cameraController!.takePicture();
       setState(() => _imageFile = photo);
@@ -158,7 +163,9 @@ class _SelfieCameraPageState extends State<SelfieCameraPage> {
           colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
         ),
       ),
-      child: _imageFile == null ? _buildCameraControls() : _buildPreviewControls(),
+      child: _imageFile == null
+          ? _buildCameraControls()
+          : _buildPreviewControls(),
     );
   }
 
@@ -171,8 +178,9 @@ class _SelfieCameraPageState extends State<SelfieCameraPage> {
         if (_cameras != null && _cameras!.length >= 2)
           _actionButton(
             Icons.flip_camera_ios,
-            _cameras![_selectedCameraIndex].lensDirection == CameraLensDirection.front 
-                ? "アウトカメ" 
+            _cameras![_selectedCameraIndex].lensDirection ==
+                    CameraLensDirection.front
+                ? "アウトカメ"
                 : "インカメ",
             _toggleCamera,
           )
@@ -187,7 +195,30 @@ class _SelfieCameraPageState extends State<SelfieCameraPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         ElevatedButton(
-          onPressed: () => print("画像確定: ${_imageFile!.path}"),
+          onPressed: () async {
+            final file = _imageFile;
+            if (file == null) return;
+
+            try {
+              final bytes = await file.readAsBytes();
+              if (!mounted) return;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CameraPage(
+                    purpose: CameraPagePurpose.selfie,
+                    initialImageFile: file,
+                    initialImageBytes: bytes,
+                  ),
+                ),
+              );
+            } catch (e) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('画像の読み込みに失敗しました: $e')));
+            }
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white,
             foregroundColor: Colors.black,
@@ -242,10 +273,7 @@ class _SelfieCameraPageState extends State<SelfieCameraPage> {
           icon: Icon(icon, size: 32, color: Colors.white),
           onPressed: onPressed,
         ),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 10, color: Colors.white),
-        ),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.white)),
       ],
     );
   }

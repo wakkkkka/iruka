@@ -1,7 +1,8 @@
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
@@ -11,9 +12,16 @@ import '../services/selfie_api_service.dart';
 enum CameraPagePurpose { registerItem, selfie }
 
 class CameraPage extends StatefulWidget {
-  const CameraPage({super.key, required this.purpose});
+  const CameraPage({
+    super.key,
+    required this.purpose,
+    this.initialImageFile,
+    this.initialImageBytes,
+  });
 
   final CameraPagePurpose purpose;
+  final XFile? initialImageFile;
+  final Uint8List? initialImageBytes;
 
   @override
   State<CameraPage> createState() => _CameraPageState();
@@ -25,6 +33,51 @@ class _CameraPageState extends State<CameraPage> {
   final ImagePicker _picker = ImagePicker();
   final ClothesApiService _clothesApiService = ClothesApiService();
   final SelfieApiService _selfieApiService = SelfieApiService();
+
+  bool _autoSelfieAnalyzeScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final initialFile = widget.initialImageFile;
+    final initialBytes = widget.initialImageBytes;
+    if (initialFile != null && initialBytes != null) {
+      _imageFile = initialFile;
+      _imageBytes = initialBytes;
+      _scheduleAutoSelfieAnalyzeIfNeeded();
+    } else if (initialFile != null) {
+      _imageFile = initialFile;
+      // Load bytes lazily.
+      Future.microtask(() async {
+        try {
+          final bytes = await initialFile.readAsBytes();
+          if (!mounted) return;
+          setState(() {
+            _imageBytes = bytes;
+          });
+          _scheduleAutoSelfieAnalyzeIfNeeded();
+        } catch (_) {
+          // Ignore; UI will ask user to re-select.
+        }
+      });
+    }
+  }
+
+  void _scheduleAutoSelfieAnalyzeIfNeeded() {
+    if (_autoSelfieAnalyzeScheduled) return;
+    if (widget.purpose != CameraPagePurpose.selfie) return;
+    if (_imageFile == null || _imageBytes == null) return;
+
+    _autoSelfieAnalyzeScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_isSubmitting) return;
+      if (_analyzeResults.isNotEmpty) return;
+      if (_selfieKey != null && _selfieKey!.trim().isNotEmpty) return;
+      _runSelfieAnalyze();
+    });
+  }
 
   bool _isSubmitting = false;
 
@@ -81,7 +134,6 @@ class _CameraPageState extends State<CameraPage> {
         });
       }
     } catch (e) {
-
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -417,14 +469,14 @@ class _CameraPageState extends State<CameraPage> {
       ),
       body: Column(
         children: [
-          Expanded(
+          Flexible(
             child: Center(
               child: _imageBytes != null
-                  ? Image.memory(_imageBytes!)
+                  ? Image.memory(_imageBytes!, fit: BoxFit.contain)
                   : _buildPlaceholder(),
             ),
           ),
-          _buildControlPanel(),
+          Expanded(child: _buildControlPanel()),
         ],
       ),
     );
@@ -449,21 +501,23 @@ class _CameraPageState extends State<CameraPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       child: _imageFile == null
-          ? Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _actionButton(
-                  Icons.image,
-                  'ギャラリー',
-                  () => _pickImage(ImageSource.gallery),
-                ),
-                if (!isLinux)
+          ? Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
                   _actionButton(
-                    Icons.camera_alt,
-                    'カメラで撮る',
-                    () => _pickImage(ImageSource.camera),
+                    Icons.image,
+                    'ギャラリー',
+                    () => _pickImage(ImageSource.gallery),
                   ),
-              ],
+                  if (!isLinux)
+                    _actionButton(
+                      Icons.camera_alt,
+                      'カメラで撮る',
+                      () => _pickImage(ImageSource.camera),
+                    ),
+                ],
+              ),
             )
           : SingleChildScrollView(
               child: Column(
