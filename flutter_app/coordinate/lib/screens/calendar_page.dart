@@ -1,8 +1,6 @@
 import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter/material.dart';
-
 import 'package:intl/intl.dart';
-
 import '../services/selfie_api_service.dart';
 import 'clothes_detail_mini.dart';
 
