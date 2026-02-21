@@ -34,6 +34,8 @@ class _CameraPageState extends State<CameraPage> {
   final ClothesApiService _clothesApiService = ClothesApiService();
   final SelfieApiService _selfieApiService = SelfieApiService();
 
+  bool _autoSelfieAnalyzeScheduled = false;
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +45,7 @@ class _CameraPageState extends State<CameraPage> {
     if (initialFile != null && initialBytes != null) {
       _imageFile = initialFile;
       _imageBytes = initialBytes;
+      _scheduleAutoSelfieAnalyzeIfNeeded();
     } else if (initialFile != null) {
       _imageFile = initialFile;
       // Load bytes lazily.
@@ -53,11 +56,27 @@ class _CameraPageState extends State<CameraPage> {
           setState(() {
             _imageBytes = bytes;
           });
+          _scheduleAutoSelfieAnalyzeIfNeeded();
         } catch (_) {
           // Ignore; UI will ask user to re-select.
         }
       });
     }
+  }
+
+  void _scheduleAutoSelfieAnalyzeIfNeeded() {
+    if (_autoSelfieAnalyzeScheduled) return;
+    if (widget.purpose != CameraPagePurpose.selfie) return;
+    if (_imageFile == null || _imageBytes == null) return;
+
+    _autoSelfieAnalyzeScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_isSubmitting) return;
+      if (_analyzeResults.isNotEmpty) return;
+      if (_selfieKey != null && _selfieKey!.trim().isNotEmpty) return;
+      _runSelfieAnalyze();
+    });
   }
 
   bool _isSubmitting = false;

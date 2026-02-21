@@ -51,8 +51,9 @@ class _ClothesCameraPageState extends State<ClothesCameraPage> {
 
   // 撮影処理
   Future<void> _takePicture() async {
-    if (!_isCameraInitialized || _cameraController!.value.isTakingPicture)
+    if (!_isCameraInitialized || _cameraController!.value.isTakingPicture) {
       return;
+    }
     try {
       final XFile photo = await _cameraController!.takePicture();
       setState(() => _imageFile = photo);
