@@ -469,14 +469,14 @@ class _CameraPageState extends State<CameraPage> {
       ),
       body: Column(
         children: [
-          Expanded(
+          Flexible(
             child: Center(
               child: _imageBytes != null
-                  ? Image.memory(_imageBytes!)
+                  ? Image.memory(_imageBytes!, fit: BoxFit.contain)
                   : _buildPlaceholder(),
             ),
           ),
-          _buildControlPanel(),
+          Expanded(child: _buildControlPanel()),
         ],
       ),
     );
@@ -501,21 +501,23 @@ class _CameraPageState extends State<CameraPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       child: _imageFile == null
-          ? Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _actionButton(
-                  Icons.image,
-                  'ギャラリー',
-                  () => _pickImage(ImageSource.gallery),
-                ),
-                if (!isLinux)
+          ? Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
                   _actionButton(
-                    Icons.camera_alt,
-                    'カメラで撮る',
-                    () => _pickImage(ImageSource.camera),
+                    Icons.image,
+                    'ギャラリー',
+                    () => _pickImage(ImageSource.gallery),
                   ),
-              ],
+                  if (!isLinux)
+                    _actionButton(
+                      Icons.camera_alt,
+                      'カメラで撮る',
+                      () => _pickImage(ImageSource.camera),
+                    ),
+                ],
+              ),
             )
           : SingleChildScrollView(
               child: Column(
