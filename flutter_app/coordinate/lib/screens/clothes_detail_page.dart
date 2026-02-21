@@ -1,6 +1,7 @@
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:flutter/material.dart';
 
+import '../constants/clothes_options.dart';
 import '../services/clothes_api_service.dart';
 
 class ClothesDetailPage extends StatefulWidget {
@@ -22,13 +23,13 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
 
   Future<String>? _imageUrlFuture;
 
-  final TextEditingController _categoryController = TextEditingController();
-  final TextEditingController _colorController = TextEditingController();
-  final TextEditingController _subCategoryController = TextEditingController();
-  final TextEditingController _sleeveLengthController = TextEditingController();
-  final TextEditingController _hemLengthController = TextEditingController();
-  final TextEditingController _seasonController = TextEditingController();
-  final TextEditingController _sceneController = TextEditingController();
+  String? _category;
+  String? _color;
+  String? _subCategory;
+  String? _sleeveLength;
+  String? _hemLength;
+  String? _season;
+  String? _scene;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
@@ -40,13 +41,6 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
 
   @override
   void dispose() {
-    _categoryController.dispose();
-    _colorController.dispose();
-    _subCategoryController.dispose();
-    _sleeveLengthController.dispose();
-    _hemLengthController.dispose();
-    _seasonController.dispose();
-    _sceneController.dispose();
     _nameController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -62,24 +56,35 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
       final item = await _clothesApiService.getClothes(widget.clothesId);
       if (!mounted) return;
 
-      _categoryController.text = (item['category'] ?? '').toString();
-      _colorController.text = (item['color'] ?? '').toString();
-      _subCategoryController.text = (item['subCategory'] ?? '').toString();
-      _sleeveLengthController.text = (item['sleeveLength'] ?? '').toString();
-      _hemLengthController.text = (item['hemLength'] ?? '').toString();
-      _sceneController.text = (item['scene'] ?? '').toString();
+      final categoryRaw = (item['category'] ?? '').toString().trim();
+      final colorRaw = (item['color'] ?? '').toString().trim();
+      final subCategoryRaw = (item['subCategory'] ?? '').toString().trim();
+      final sleeveLengthRaw = (item['sleeveLength'] ?? '').toString().trim();
+      final hemLengthRaw = (item['hemLength'] ?? '').toString().trim();
+      final sceneRaw = (item['scene'] ?? '').toString().trim();
+
+      _category = categoryRaw.isEmpty ? null : categoryRaw;
+      _color = colorRaw.isEmpty ? null : colorRaw;
+      _subCategory = subCategoryRaw.isEmpty ? null : subCategoryRaw;
+      _sleeveLength = sleeveLengthRaw.isEmpty ? null : sleeveLengthRaw;
+      _hemLength = hemLengthRaw.isEmpty ? null : hemLengthRaw;
+      _scene = sceneRaw.isEmpty ? null : sceneRaw;
       _nameController.text = (item['name'] ?? '').toString();
       _notesController.text = (item['notes'] ?? '').toString();
+
+      if (_category == 'shoes' || _category == 'bottoms') {
+        _sleeveLength = null;
+      }
 
       final imageUrl = (item['imageUrl'] ?? '').toString();
 
       final season = item['season'];
-      if (season is List) {
-        _seasonController.text = season.map((e) => e.toString()).join(',');
-      } else if (season is Set) {
-        _seasonController.text = season.map((e) => e.toString()).join(',');
+      if (season is List && season.isNotEmpty) {
+        _season = season.first.toString().trim();
+      } else if (season is Set && season.isNotEmpty) {
+        _season = season.first.toString().trim();
       } else {
-        _seasonController.text = '';
+        _season = null;
       }
 
       _imageUrlFuture = _resolveImageUrlIfNeeded(imageUrl);
@@ -121,11 +126,45 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
     return seasons.isEmpty ? null : seasons;
   }
 
+  Widget _dropdownField({
+    required String label,
+    required List<String> options,
+    required String? value,
+    required ValueChanged<String?> onChanged,
+    Map<String, String>? optionLabels,
+    bool enabled = true,
+  }) {
+    final normalizedValue = (value != null && options.contains(value))
+        ? value
+        : null;
+
+    return DropdownButtonFormField<String>(
+      initialValue: normalizedValue,
+      items: options
+          .map(
+            (e) => DropdownMenuItem<String>(
+              value: e,
+              child: Text(
+                optionLabels == null
+                    ? e
+                    : ClothesOptions.labelFor(e, optionLabels),
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: enabled ? onChanged : null,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
   Future<void> _save() async {
     if (_saving || _deleting) return;
 
-    final category = _emptyToNull(_categoryController.text);
-    final color = _emptyToNull(_colorController.text);
+    final category = _category;
+    final color = _color;
     if (category == null || color == null) {
       ScaffoldMessenger.of(
         context,
@@ -143,11 +182,11 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
         widget.clothesId,
         category: category,
         color: color,
-        subCategory: _emptyToNull(_subCategoryController.text),
-        sleeveLength: _emptyToNull(_sleeveLengthController.text),
-        hemLength: _emptyToNull(_hemLengthController.text),
-        season: _parseSeason(_seasonController.text),
-        scene: _emptyToNull(_sceneController.text),
+        subCategory: _subCategory,
+        sleeveLength: _sleeveLength,
+        hemLength: _hemLength,
+        season: _parseSeason(_season ?? ''),
+        scene: _scene,
         name: _emptyToNull(_nameController.text),
         notes: _emptyToNull(_notesController.text),
       );
@@ -226,18 +265,30 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
         }
         return ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            url,
-            height: 200,
-            width: double.infinity,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                height: 200,
-                color: Colors.black12,
-                child: const Center(child: Icon(Icons.broken_image)),
+          child: GestureDetector(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => Dialog(
+                  child: InteractiveViewer(
+                    child: Image.network(url, fit: BoxFit.contain),
+                  ),
+                ),
               );
             },
+            child: Image.network(
+              url,
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 200,
+                  color: Colors.black12,
+                  child: const Center(child: Icon(Icons.broken_image)),
+                );
+              },
+            ),
           ),
         );
       },
@@ -249,6 +300,7 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
     required String label,
     int maxLines = 1,
     bool enabled = true,
+    ValueChanged<String>? onChanged,
   }) {
     return TextField(
       controller: controller,
@@ -258,12 +310,16 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
       ),
       enabled: enabled,
       maxLines: maxLines,
+      onChanged: onChanged,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final busy = _saving || _deleting;
+    final sleeveDisabled = _category == 'shoes' || _category == 'bottoms';
+    final hemDisabled =
+        _category == 'tops' || _category == 'outer' || _category == 'shoes';
 
     return Scaffold(
       appBar: AppBar(title: const Text('アイテム詳細'), centerTitle: true),
@@ -286,46 +342,123 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    _field(
-                      controller: _categoryController,
+                    _dropdownField(
                       label: 'カテゴリ（必須）',
+                      options: ClothesOptions.categories,
+                      value: _category,
                       enabled: !busy,
+                      optionLabels: ClothesOptions.categoryLabels,
+                      onChanged: (v) {
+                        setState(() {
+                          _category = v;
+                          if (_category == 'shoes' || _category == 'bottoms') {
+                            _sleeveLength = null;
+                          }
+                          if (_category == 'tops' ||
+                              _category == 'outer' ||
+                              _category == 'shoes') {
+                            _hemLength = null;
+                          }
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
-                    _field(
-                      controller: _colorController,
+                    _dropdownField(
                       label: '色（必須）',
+                      options: ClothesOptions.colors,
+                      value: _color,
                       enabled: !busy,
+                      optionLabels: ClothesOptions.colorLabels,
+                      onChanged: (v) {
+                        setState(() {
+                          _color = v;
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
-                    _field(
-                      controller: _subCategoryController,
+                    _dropdownField(
                       label: 'サブカテゴリ',
+                      options: ClothesOptions.subCategories,
+                      value: _subCategory,
                       enabled: !busy,
+                      optionLabels: ClothesOptions.subCategoryLabels,
+                      onChanged: (v) {
+                        setState(() {
+                          _subCategory = v;
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
-                    _field(
-                      controller: _sleeveLengthController,
-                      label: '袖丈',
+                    if (sleeveDisabled)
+                      TextFormField(
+                        enabled: false,
+                        initialValue: '袖丈は設定できません',
+                        decoration: const InputDecoration(
+                          labelText: '袖丈',
+                          border: OutlineInputBorder(),
+                        ),
+                      )
+                    else
+                      _dropdownField(
+                        label: '袖丈',
+                        options: ClothesOptions.sleeveLengths,
+                        value: _sleeveLength,
+                        enabled: !busy,
+                        optionLabels: ClothesOptions.sleeveLengthLabels,
+                        onChanged: (v) {
+                          setState(() {
+                            _sleeveLength = v;
+                          });
+                        },
+                      ),
+                    const SizedBox(height: 12),
+                    if (hemDisabled)
+                      TextFormField(
+                        enabled: false,
+                        initialValue: '丈は設定できません',
+                        decoration: InputDecoration(
+                          labelText: '丈',
+                          border: OutlineInputBorder(),
+                        ),
+                      )
+                    else
+                      _dropdownField(
+                        label: '丈',
+                        options: ClothesOptions.hemLengths,
+                        value: _hemLength,
+                        enabled: !busy,
+                        optionLabels: ClothesOptions.hemLengthLabels,
+                        onChanged: (v) {
+                          setState(() {
+                            _hemLength = v;
+                          });
+                        },
+                      ),
+                    const SizedBox(height: 12),
+                    _dropdownField(
+                      label: '季節',
+                      options: ClothesOptions.seasons,
+                      value: _season,
                       enabled: !busy,
+                      optionLabels: ClothesOptions.seasonLabels,
+                      onChanged: (v) {
+                        setState(() {
+                          _season = v;
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
-                    _field(
-                      controller: _hemLengthController,
-                      label: '丈',
-                      enabled: !busy,
-                    ),
-                    const SizedBox(height: 12),
-                    _field(
-                      controller: _seasonController,
-                      label: '季節（カンマ区切り）',
-                      enabled: !busy,
-                    ),
-                    const SizedBox(height: 12),
-                    _field(
-                      controller: _sceneController,
+                    _dropdownField(
                       label: 'シーン',
+                      options: ClothesOptions.scenes,
+                      value: _scene,
                       enabled: !busy,
+                      optionLabels: ClothesOptions.sceneLabels,
+                      onChanged: (v) {
+                        setState(() {
+                          _scene = v;
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
                     _field(

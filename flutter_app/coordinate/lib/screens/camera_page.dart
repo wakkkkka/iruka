@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import '../services/clothes_api_service.dart';
 import '../services/selfie_api_service.dart';
+import '../constants/clothes_options.dart';
 
 enum CameraPagePurpose { registerItem, selfie }
 
@@ -85,29 +86,56 @@ class _CameraPageState extends State<CameraPage> {
   List<Map<String, dynamic>> _analyzeResults = const [];
   Map<String, String> _selections = const {};
   final Map<String, Future<String>> _imageUrlFutures = {};
-
-  final TextEditingController _categoryController = TextEditingController();
-  final TextEditingController _colorController = TextEditingController();
-  final TextEditingController _subCategoryController = TextEditingController();
-  final TextEditingController _sleeveLengthController = TextEditingController();
-  final TextEditingController _hemLengthController = TextEditingController();
-  final TextEditingController _seasonController = TextEditingController();
-  final TextEditingController _sceneController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
+  String? _category;
+  String? _color;
+  String? _subCategory;
+  String? _sleeveLength;
+  String? _hemLength;
+  String? _season;
+  String? _scene;
+
   @override
   void dispose() {
-    _categoryController.dispose();
-    _colorController.dispose();
-    _subCategoryController.dispose();
-    _sleeveLengthController.dispose();
-    _hemLengthController.dispose();
-    _seasonController.dispose();
-    _sceneController.dispose();
     _nameController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  Widget _dropdownField({
+    required String label,
+    required List<String> options,
+    required String? value,
+    required ValueChanged<String?> onChanged,
+    Map<String, String>? optionLabels,
+    bool enabled = true,
+  }) {
+    final normalizedValue = (value != null && options.contains(value))
+        ? value
+        : null;
+
+    return DropdownButtonFormField<String>(
+      initialValue: normalizedValue,
+      items: options
+          .map(
+            (e) => DropdownMenuItem<String>(
+              value: e,
+              child: Text(
+                optionLabels == null
+                    ? e
+                    : ClothesOptions.labelFor(e, optionLabels),
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: enabled ? onChanged : null,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+    );
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -231,9 +259,9 @@ class _CameraPageState extends State<CameraPage> {
       return;
     }
 
-    final category = _categoryController.text.trim();
-    final color = _colorController.text.trim();
-    if (category.isEmpty || color.isEmpty) {
+    final category = _category;
+    final color = _color;
+    if (category == null || color == null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('カテゴリと色は必須です')));
@@ -254,19 +282,11 @@ class _CameraPageState extends State<CameraPage> {
       final created = await _clothesApiService.createClothes(
         category: category,
         color: color,
-        subCategory: _subCategoryController.text.trim().isEmpty
-            ? null
-            : _subCategoryController.text.trim(),
-        sleeveLength: _sleeveLengthController.text.trim().isEmpty
-            ? null
-            : _sleeveLengthController.text.trim(),
-        hemLength: _hemLengthController.text.trim().isEmpty
-            ? null
-            : _hemLengthController.text.trim(),
-        season: _parseSeason(_seasonController.text),
-        scene: _sceneController.text.trim().isEmpty
-            ? null
-            : _sceneController.text.trim(),
+        subCategory: _subCategory,
+        sleeveLength: _sleeveLength,
+        hemLength: _hemLength,
+        season: _parseSeason(_season ?? ''),
+        scene: _scene,
         imageUrl: objectPath,
         name: _nameController.text.trim().isEmpty
             ? null
@@ -281,7 +301,7 @@ class _CameraPageState extends State<CameraPage> {
         SnackBar(content: Text('登録しました: ${created['clothesId'] ?? ''}')),
       );
 
-      Navigator.pop(context);
+      Navigator.pushReplacementNamed(context, '/home');
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -439,7 +459,7 @@ class _CameraPageState extends State<CameraPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('記録しました')));
-      Navigator.pop(context);
+      Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -469,7 +489,8 @@ class _CameraPageState extends State<CameraPage> {
       ),
       body: Column(
         children: [
-          Flexible(
+          SizedBox(
+            height: 120,
             child: Center(
               child: _imageBytes != null
                   ? Image.memory(_imageBytes!, fit: BoxFit.contain)
@@ -498,6 +519,9 @@ class _CameraPageState extends State<CameraPage> {
 
   Widget _buildControlPanel() {
     final isLinux = !kIsWeb && defaultTargetPlatform == TargetPlatform.linux;
+    final sleeveDisabled = _category == 'shoes' || _category == 'bottoms';
+    final hemDisabled =
+        _category == 'tops' || _category == 'outer' || _category == 'shoes';
     return Container(
       padding: const EdgeInsets.all(24),
       child: _imageFile == null
@@ -523,67 +547,123 @@ class _CameraPageState extends State<CameraPage> {
               child: Column(
                 children: [
                   if (widget.purpose == CameraPagePurpose.registerItem) ...[
-                    TextField(
-                      controller: _categoryController,
-                      decoration: const InputDecoration(
-                        labelText: 'カテゴリ（必須）例: tops',
-                        border: OutlineInputBorder(),
-                      ),
+                    _dropdownField(
+                      label: 'カテゴリ（必須）',
+                      options: ClothesOptions.categories,
+                      value: _category,
                       enabled: !_isSubmitting,
+                      optionLabels: ClothesOptions.categoryLabels,
+                      onChanged: (v) {
+                        setState(() {
+                          _category = v;
+                          if (_category == 'shoes' || _category == 'bottoms') {
+                            _sleeveLength = null;
+                          }
+                          if (_category == 'tops' ||
+                              _category == 'outer' ||
+                              _category == 'shoes') {
+                            _hemLength = null;
+                          }
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: _colorController,
-                      decoration: const InputDecoration(
-                        labelText: '色（必須）例: navy',
-                        border: OutlineInputBorder(),
-                      ),
+                    _dropdownField(
+                      label: '色（必須）',
+                      options: ClothesOptions.colors,
+                      value: _color,
                       enabled: !_isSubmitting,
+                      optionLabels: ClothesOptions.colorLabels,
+                      onChanged: (v) {
+                        setState(() {
+                          _color = v;
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: _subCategoryController,
-                      decoration: const InputDecoration(
-                        labelText: 'サブカテゴリ 例: t-shirt',
-                        border: OutlineInputBorder(),
-                      ),
+                    _dropdownField(
+                      label: 'サブカテゴリ',
+                      options: ClothesOptions.subCategories,
+                      value: _subCategory,
                       enabled: !_isSubmitting,
+                      optionLabels: ClothesOptions.subCategoryLabels,
+                      onChanged: (v) {
+                        setState(() {
+                          _subCategory = v;
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: _sleeveLengthController,
-                      decoration: const InputDecoration(
-                        labelText: '袖丈 例: short',
-                        border: OutlineInputBorder(),
+                    if (sleeveDisabled)
+                      TextFormField(
+                        enabled: false,
+                        initialValue: '袖丈は設定できません',
+                        decoration: const InputDecoration(
+                          labelText: '袖丈',
+                          border: OutlineInputBorder(),
+                        ),
+                      )
+                    else
+                      _dropdownField(
+                        label: '袖丈',
+                        options: ClothesOptions.sleeveLengths,
+                        value: _sleeveLength,
+                        enabled: !_isSubmitting,
+                        optionLabels: ClothesOptions.sleeveLengthLabels,
+                        onChanged: (v) {
+                          setState(() {
+                            _sleeveLength = v;
+                          });
+                        },
                       ),
+                    const SizedBox(height: 12),
+                    if (hemDisabled)
+                      TextFormField(
+                        enabled: false,
+                        initialValue: '丈は設定できません',
+                        decoration: InputDecoration(
+                          labelText: '丈',
+                          border: OutlineInputBorder(),
+                        ),
+                      )
+                    else
+                      _dropdownField(
+                        label: '丈',
+                        options: ClothesOptions.hemLengths,
+                        value: _hemLength,
+                        enabled: !_isSubmitting,
+                        optionLabels: ClothesOptions.hemLengthLabels,
+                        onChanged: (v) {
+                          setState(() {
+                            _hemLength = v;
+                          });
+                        },
+                      ),
+                    const SizedBox(height: 12),
+                    _dropdownField(
+                      label: '季節',
+                      options: ClothesOptions.seasons,
+                      value: _season,
                       enabled: !_isSubmitting,
+                      optionLabels: ClothesOptions.seasonLabels,
+                      onChanged: (v) {
+                        setState(() {
+                          _season = v;
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: _hemLengthController,
-                      decoration: const InputDecoration(
-                        labelText: '丈 例: long',
-                        border: OutlineInputBorder(),
-                      ),
+                    _dropdownField(
+                      label: 'シーン',
+                      options: ClothesOptions.scenes,
+                      value: _scene,
                       enabled: !_isSubmitting,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _seasonController,
-                      decoration: const InputDecoration(
-                        labelText: '季節（カンマ区切り）例: spring,fall',
-                        border: OutlineInputBorder(),
-                      ),
-                      enabled: !_isSubmitting,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _sceneController,
-                      decoration: const InputDecoration(
-                        labelText: 'シーン 例: casual',
-                        border: OutlineInputBorder(),
-                      ),
-                      enabled: !_isSubmitting,
+                      optionLabels: ClothesOptions.sceneLabels,
+                      onChanged: (v) {
+                        setState(() {
+                          _scene = v;
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
                     TextField(
