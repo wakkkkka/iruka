@@ -262,18 +262,33 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
         }
         return ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            url,
-            height: 200,
-            width: double.infinity,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                height: 200,
-                color: Colors.black12,
-                child: const Center(child: Icon(Icons.broken_image)),
+          child: GestureDetector(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => Dialog(
+                  child: InteractiveViewer(
+                    child: Image.network(
+                      url,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
               );
             },
+            child: Image.network(
+              url,
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 200,
+                  color: Colors.black12,
+                  child: const Center(child: Icon(Icons.broken_image)),
+                );
+              },
+            ),
           ),
         );
       },
