@@ -30,7 +30,6 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
   String? _hemLength;
   String? _season;
   String? _scene;
-
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
@@ -72,6 +71,10 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
       _scene = sceneRaw.isEmpty ? null : sceneRaw;
       _nameController.text = (item['name'] ?? '').toString();
       _notesController.text = (item['notes'] ?? '').toString();
+
+      if (_category == 'shoes' || _category == 'bottoms') {
+        _sleeveLength = null;
+      }
 
       final imageUrl = (item['imageUrl'] ?? '').toString();
 
@@ -268,10 +271,7 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
                 context: context,
                 builder: (context) => Dialog(
                   child: InteractiveViewer(
-                    child: Image.network(
-                      url,
-                      fit: BoxFit.contain,
-                    ),
+                    child: Image.network(url, fit: BoxFit.contain),
                   ),
                 ),
               );
@@ -300,6 +300,7 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
     required String label,
     int maxLines = 1,
     bool enabled = true,
+    ValueChanged<String>? onChanged,
   }) {
     return TextField(
       controller: controller,
@@ -309,12 +310,14 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
       ),
       enabled: enabled,
       maxLines: maxLines,
+      onChanged: onChanged,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final busy = _saving || _deleting;
+    final sleeveDisabled = _category == 'shoes' || _category == 'bottoms';
     final hemDisabled =
         _category == 'tops' || _category == 'outer' || _category == 'shoes';
 
@@ -348,6 +351,9 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
                       onChanged: (v) {
                         setState(() {
                           _category = v;
+                          if (_category == 'shoes' || _category == 'bottoms') {
+                            _sleeveLength = null;
+                          }
                           if (_category == 'tops' ||
                               _category == 'outer' ||
                               _category == 'shoes') {
@@ -383,18 +389,28 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    _dropdownField(
-                      label: '袖丈',
-                      options: ClothesOptions.sleeveLengths,
-                      value: _sleeveLength,
-                      enabled: !busy,
-                      optionLabels: ClothesOptions.sleeveLengthLabels,
-                      onChanged: (v) {
-                        setState(() {
-                          _sleeveLength = v;
-                        });
-                      },
-                    ),
+                    if (sleeveDisabled)
+                      TextFormField(
+                        enabled: false,
+                        initialValue: '袖丈は設定できません',
+                        decoration: const InputDecoration(
+                          labelText: '袖丈',
+                          border: OutlineInputBorder(),
+                        ),
+                      )
+                    else
+                      _dropdownField(
+                        label: '袖丈',
+                        options: ClothesOptions.sleeveLengths,
+                        value: _sleeveLength,
+                        enabled: !busy,
+                        optionLabels: ClothesOptions.sleeveLengthLabels,
+                        onChanged: (v) {
+                          setState(() {
+                            _sleeveLength = v;
+                          });
+                        },
+                      ),
                     const SizedBox(height: 12),
                     if (hemDisabled)
                       TextFormField(

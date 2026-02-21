@@ -86,7 +86,6 @@ class _CameraPageState extends State<CameraPage> {
   List<Map<String, dynamic>> _analyzeResults = const [];
   Map<String, String> _selections = const {};
   final Map<String, Future<String>> _imageUrlFutures = {};
-
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
@@ -520,6 +519,7 @@ class _CameraPageState extends State<CameraPage> {
 
   Widget _buildControlPanel() {
     final isLinux = !kIsWeb && defaultTargetPlatform == TargetPlatform.linux;
+    final sleeveDisabled = _category == 'shoes' || _category == 'bottoms';
     final hemDisabled =
         _category == 'tops' || _category == 'outer' || _category == 'shoes';
     return Container(
@@ -556,6 +556,9 @@ class _CameraPageState extends State<CameraPage> {
                       onChanged: (v) {
                         setState(() {
                           _category = v;
+                          if (_category == 'shoes' || _category == 'bottoms') {
+                            _sleeveLength = null;
+                          }
                           if (_category == 'tops' ||
                               _category == 'outer' ||
                               _category == 'shoes') {
@@ -591,18 +594,28 @@ class _CameraPageState extends State<CameraPage> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    _dropdownField(
-                      label: '袖丈',
-                      options: ClothesOptions.sleeveLengths,
-                      value: _sleeveLength,
-                      enabled: !_isSubmitting,
-                      optionLabels: ClothesOptions.sleeveLengthLabels,
-                      onChanged: (v) {
-                        setState(() {
-                          _sleeveLength = v;
-                        });
-                      },
-                    ),
+                    if (sleeveDisabled)
+                      TextFormField(
+                        enabled: false,
+                        initialValue: '袖丈は設定できません',
+                        decoration: const InputDecoration(
+                          labelText: '袖丈',
+                          border: OutlineInputBorder(),
+                        ),
+                      )
+                    else
+                      _dropdownField(
+                        label: '袖丈',
+                        options: ClothesOptions.sleeveLengths,
+                        value: _sleeveLength,
+                        enabled: !_isSubmitting,
+                        optionLabels: ClothesOptions.sleeveLengthLabels,
+                        onChanged: (v) {
+                          setState(() {
+                            _sleeveLength = v;
+                          });
+                        },
+                      ),
                     const SizedBox(height: 12),
                     if (hemDisabled)
                       TextFormField(
