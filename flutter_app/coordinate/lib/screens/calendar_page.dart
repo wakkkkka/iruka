@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../services/selfie_api_service.dart';
+import 'clothes_detail_mini.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -13,16 +14,54 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
-  final SelfieApiService _selfieApiService = SelfieApiService();
+      Widget buildWearLogCard(Map<String, dynamic> log) {
+        final selections = log['selections'];
+        String selectionSummary = '';
+        String summary = log['summary'] ?? '';
+        String date = log['date'] ?? '';
 
-  bool _busy = false;
-  String? _error;
-  List<Map<String, dynamic>> _items = const [];
+        if (selections is Map) {
+          final entries = selections.entries
+              .map((e) => '${e.key}: ${e.value}')
+              .where((e) => e.trim().isNotEmpty)
+              .toList();
+          selectionSummary = entries.isEmpty ? '' : entries.join(' / ');
+        }
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  date.isNotEmpty ? date : '日付不明',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                if (selectionSummary.isNotEmpty)
+                  Text(selectionSummary, style: const TextStyle(fontSize: 12))
+                else if (summary.isNotEmpty)
+                  Text(summary, style: const TextStyle(fontSize: 12))
+                else
+                  const Text(
+                    '—',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }
+    DateTime? _selectedDay;
+    List<Map<String, dynamic>> _selectedDayLogs = const [];
+    final List<Map<String, dynamic>> _items = [];
+    // ...existing code...
 
   @override
   void initState() {
     super.initState();
-    _refresh();
+    // ...existing code...
   }
 
   String _isoDateLocal(DateTime dt) {
@@ -32,34 +71,7 @@ class _CalendarPageState extends State<CalendarPage> {
     return '$y-$m-$d';
   }
 
-  Future<void> _refresh() async {
-    if (_busy) return;
-    setState(() {
-      _busy = true;
-    });
-    try {
-      final now = DateTime.now();
-      final from = _isoDateLocal(now.subtract(const Duration(days: 30)));
-      final to = _isoDateLocal(now);
-      final items = await _selfieApiService.listWearLogs(from: from, to: to);
-      if (!mounted) return;
-      setState(() {
-        _items = items;
-        _error = null;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _busy = false;
-        });
-      }
-    }
-  }
+  // ...existing code...
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +86,8 @@ class _CalendarPageState extends State<CalendarPage> {
               child: TableCalendar(
                 firstDay: DateTime.utc(2020, 1, 1),
                 lastDay: DateTime.utc(2030, 12, 31),
-                focusedDay: DateTime.now(),
+                focusedDay: _selectedDay ?? DateTime.now(),
+                selectedDayPredicate: (day) => _selectedDay != null && isSameDay(day, _selectedDay),
                 calendarFormat: CalendarFormat.month,
                 headerStyle: const HeaderStyle(
                   titleCentered: false,
@@ -134,98 +147,79 @@ class _CalendarPageState extends State<CalendarPage> {
                   ),
                   weekendTextStyle: const TextStyle(color: Colors.black),
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '直近30日の着用ログ',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _refresh,
-                child: ListView(
-                  padding: const EdgeInsets.all(8),
-                  children: [
-                    if (_error != null) ...[
-                      Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    if (_items.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 24),
-                        child: Center(
-                          child: Text(
-                            _busy ? '読み込み中…' : 'ログがありません',
-                            style: const TextStyle(color: Colors.black54),
-                          ),
+                onDaySelected: (selectedDay, focusedDay) {
+                  setState(() {
+                    _selectedDay = selectedDay;
+                    _selectedDayLogs = _items.where((item) {
+                      final dateStr = item['date'] as String?;
+                      if (dateStr == null) return false;
+                      final date = DateTime.tryParse(dateStr);
+                      return date != null &&
+                        date.year == selectedDay.year &&
+                        date.month == selectedDay.month &&
+                        date.day == selectedDay.day;
+                    }).toList();
+                  });
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text(DateFormat('yyyy/MM/dd').format(selectedDay)),
+                      content: _selectedDayLogs.isEmpty
+                          ? const Text('着用記録がありません')
+                          : SizedBox(
+                              width: 300,
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: _selectedDayLogs.length,
+                                itemBuilder: (context, idx) {
+                                  final log = _selectedDayLogs[idx];
+                                  final selfieUrl = log['selfieUrl'] as String?;
+                                  final clothesIds = log['clothesIds'] as List?;
+                                  final selections = log['selections'] as Map?;
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (selfieUrl != null && selfieUrl.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(bottom: 8),
+                                          child: Image.network(selfieUrl, height: 120, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.broken_image)),
+                                        ),
+                                      if (clothesIds != null && clothesIds.isNotEmpty)
+                                        ...clothesIds.map<Widget>((id) => ClothesDetailMini(id: id.toString())),
+                                      if (selections != null && selections.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Text('タグ: ${selections.entries.map((e) => '${e.key}: ${e.value}').join(', ')}', style: const TextStyle(fontSize: 12)),
+                                        ),
+                                      const Divider(),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('閉じる'),
                         ),
-                      )
-                    else
-                      ..._items.map(_buildItemCard),
-                  ],
-                ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
+
+            // ...existing code...
           ],
         ),
       ),
     );
   }
 
-  Widget _buildItemCard(Map<String, dynamic> item) {
-    final date = (item['date'] is String)
-        ? (item['date'] as String).trim()
-        : '';
-    final clothesIds = item['clothesIds'];
-    final selections = item['selections'];
-
-    String summary = '';
-    if (clothesIds is List) {
-      final ids = clothesIds
-          .map((e) => e.toString())
-          .where((e) => e.trim().isNotEmpty)
-          .toList();
-      summary = ids.isEmpty ? '' : ids.join(', ');
-    }
-
-    String selectionSummary = '';
-    if (selections is Map) {
-      final entries = selections.entries
-          .map((e) => '${e.key}: ${e.value}')
-          .where((e) => e.trim().isNotEmpty)
-          .toList();
-      selectionSummary = entries.isEmpty ? '' : entries.join(' / ');
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              date.isNotEmpty ? date : '日付不明',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 6),
-            if (selectionSummary.isNotEmpty)
-              Text(selectionSummary, style: const TextStyle(fontSize: 12))
-            else if (summary.isNotEmpty)
-              Text(summary, style: const TextStyle(fontSize: 12))
-            else
-              const Text(
-                '—',
-                style: TextStyle(fontSize: 12, color: Colors.black54),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+  // ...existing code...
+// ここに何も書かない（ClothesDetailMiniは外部ファイルからimport）
 }
+
+
+
 
