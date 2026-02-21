@@ -490,7 +490,8 @@ class _CameraPageState extends State<CameraPage> {
       ),
       body: Column(
         children: [
-          Flexible(
+          SizedBox(
+            height: 120,
             child: Center(
               child: _imageBytes != null
                   ? Image.memory(_imageBytes!, fit: BoxFit.contain)
