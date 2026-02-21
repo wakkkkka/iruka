@@ -136,10 +136,11 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  const Text('アカウントをお持ちでませんか？ '),
+                  const Text('アカウントを作成しますか？'),
                   TextButton(
                     onPressed: _isLoading
                         ? null
