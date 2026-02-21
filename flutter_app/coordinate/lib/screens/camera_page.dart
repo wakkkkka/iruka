@@ -281,7 +281,7 @@ class _CameraPageState extends State<CameraPage> {
         SnackBar(content: Text('登録しました: ${created['clothesId'] ?? ''}')),
       );
 
-      Navigator.pop(context);
+      Navigator.pushReplacementNamed(context, '/home');
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -439,7 +439,7 @@ class _CameraPageState extends State<CameraPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('記録しました')));
-      Navigator.pop(context);
+      Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
