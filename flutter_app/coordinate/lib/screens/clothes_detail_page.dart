@@ -26,6 +26,8 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
   final TextEditingController _colorController = TextEditingController();
   final TextEditingController _subCategoryController = TextEditingController();
   final TextEditingController _sleeveLengthController = TextEditingController();
+  final TextEditingController _disabledSleeveLengthController =
+      TextEditingController(text: '袖丈は設定できません');
   final TextEditingController _hemLengthController = TextEditingController();
   final TextEditingController _seasonController = TextEditingController();
   final TextEditingController _sceneController = TextEditingController();
@@ -44,6 +46,7 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
     _colorController.dispose();
     _subCategoryController.dispose();
     _sleeveLengthController.dispose();
+    _disabledSleeveLengthController.dispose();
     _hemLengthController.dispose();
     _seasonController.dispose();
     _sceneController.dispose();
@@ -70,6 +73,12 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
       _sceneController.text = (item['scene'] ?? '').toString();
       _nameController.text = (item['name'] ?? '').toString();
       _notesController.text = (item['notes'] ?? '').toString();
+
+      final category = _categoryController.text.trim();
+      final sleeveDisabled = category == 'shoes' || category == 'bottoms';
+      if (sleeveDisabled) {
+        _sleeveLengthController.clear();
+      }
 
       final imageUrl = (item['imageUrl'] ?? '').toString();
 
@@ -249,6 +258,7 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
     required String label,
     int maxLines = 1,
     bool enabled = true,
+    ValueChanged<String>? onChanged,
   }) {
     return TextField(
       controller: controller,
@@ -258,12 +268,15 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
       ),
       enabled: enabled,
       maxLines: maxLines,
+      onChanged: onChanged,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final busy = _saving || _deleting;
+    final category = _categoryController.text.trim();
+    final sleeveDisabled = category == 'shoes' || category == 'bottoms';
 
     return Scaffold(
       appBar: AppBar(title: const Text('アイテム詳細'), centerTitle: true),
@@ -290,6 +303,16 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
                       controller: _categoryController,
                       label: 'カテゴリ（必須）',
                       enabled: !busy,
+                      onChanged: (_) {
+                        final nextCategory = _categoryController.text.trim();
+                        final nextSleeveDisabled =
+                            nextCategory == 'shoes' ||
+                            nextCategory == 'bottoms';
+                        if (nextSleeveDisabled) {
+                          _sleeveLengthController.clear();
+                        }
+                        setState(() {});
+                      },
                     ),
                     const SizedBox(height: 12),
                     _field(
@@ -304,11 +327,21 @@ class _ClothesDetailPageState extends State<ClothesDetailPage> {
                       enabled: !busy,
                     ),
                     const SizedBox(height: 12),
-                    _field(
-                      controller: _sleeveLengthController,
-                      label: '袖丈',
-                      enabled: !busy,
-                    ),
+                    if (sleeveDisabled)
+                      TextField(
+                        controller: _disabledSleeveLengthController,
+                        decoration: const InputDecoration(
+                          labelText: '袖丈',
+                          border: OutlineInputBorder(),
+                        ),
+                        enabled: false,
+                      )
+                    else
+                      _field(
+                        controller: _sleeveLengthController,
+                        label: '袖丈',
+                        enabled: !busy,
+                      ),
                     const SizedBox(height: 12),
                     _field(
                       controller: _hemLengthController,

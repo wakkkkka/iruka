@@ -90,6 +90,8 @@ class _CameraPageState extends State<CameraPage> {
   final TextEditingController _colorController = TextEditingController();
   final TextEditingController _subCategoryController = TextEditingController();
   final TextEditingController _sleeveLengthController = TextEditingController();
+  final TextEditingController _disabledSleeveLengthController =
+      TextEditingController(text: '袖丈は設定できません');
   final TextEditingController _hemLengthController = TextEditingController();
   final TextEditingController _seasonController = TextEditingController();
   final TextEditingController _sceneController = TextEditingController();
@@ -102,6 +104,7 @@ class _CameraPageState extends State<CameraPage> {
     _colorController.dispose();
     _subCategoryController.dispose();
     _sleeveLengthController.dispose();
+    _disabledSleeveLengthController.dispose();
     _hemLengthController.dispose();
     _seasonController.dispose();
     _sceneController.dispose();
@@ -498,6 +501,8 @@ class _CameraPageState extends State<CameraPage> {
 
   Widget _buildControlPanel() {
     final isLinux = !kIsWeb && defaultTargetPlatform == TargetPlatform.linux;
+    final category = _categoryController.text.trim();
+    final sleeveDisabled = category == 'shoes' || category == 'bottoms';
     return Container(
       padding: const EdgeInsets.all(24),
       child: _imageFile == null
@@ -530,6 +535,16 @@ class _CameraPageState extends State<CameraPage> {
                         border: OutlineInputBorder(),
                       ),
                       enabled: !_isSubmitting,
+                      onChanged: (_) {
+                        final nextCategory = _categoryController.text.trim();
+                        final nextSleeveDisabled =
+                            nextCategory == 'shoes' ||
+                            nextCategory == 'bottoms';
+                        if (nextSleeveDisabled) {
+                          _sleeveLengthController.clear();
+                        }
+                        setState(() {});
+                      },
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -550,14 +565,24 @@ class _CameraPageState extends State<CameraPage> {
                       enabled: !_isSubmitting,
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: _sleeveLengthController,
-                      decoration: const InputDecoration(
-                        labelText: '袖丈 例: short',
-                        border: OutlineInputBorder(),
+                    if (sleeveDisabled)
+                      TextField(
+                        controller: _disabledSleeveLengthController,
+                        decoration: const InputDecoration(
+                          labelText: '袖丈',
+                          border: OutlineInputBorder(),
+                        ),
+                        enabled: false,
+                      )
+                    else
+                      TextField(
+                        controller: _sleeveLengthController,
+                        decoration: const InputDecoration(
+                          labelText: '袖丈 例: short',
+                          border: OutlineInputBorder(),
+                        ),
+                        enabled: !_isSubmitting,
                       ),
-                      enabled: !_isSubmitting,
-                    ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _hemLengthController,
