@@ -1,4 +1,7 @@
+import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter/material.dart';
+
+import 'package:intl/intl.dart';
 
 import '../services/selfie_api_service.dart';
 
@@ -61,39 +64,114 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('履歴')),
+      backgroundColor: Colors.white,
+      appBar: AppBar(title: const Text('カレンダー')),
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const Text(
-                '直近30日の着用ログ',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              if (_error != null) ...[
-                Text(
-                  _error!,
-                  style: const TextStyle(color: Colors.red, fontSize: 12),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: TableCalendar(
+                firstDay: DateTime.utc(2020, 1, 1),
+                lastDay: DateTime.utc(2030, 12, 31),
+                focusedDay: DateTime.now(),
+                calendarFormat: CalendarFormat.month,
+                headerStyle: const HeaderStyle(
+                  titleCentered: false,
+                  formatButtonVisible: false,
+                  leftChevronVisible: false,
+                  rightChevronVisible: false,
+                  titleTextFormatter: null,
                 ),
-                const SizedBox(height: 12),
-              ],
-              if (_items.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 24),
-                  child: Center(
-                    child: Text(
-                      _busy ? '読み込み中…' : 'ログがありません',
-                      style: const TextStyle(color: Colors.black54),
-                    ),
+                calendarBuilders: CalendarBuilders(
+                  headerTitleBuilder: (context, day) {
+                    final monthNumber = DateFormat.M().format(day);
+                    final monthName = DateFormat.MMMM().format(day);
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 16.0, top: 20, bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            monthNumber,
+                            style: const TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            monthName,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w300,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  defaultBuilder: (context, day, focusedDay) {
+                    return Center(
+                      child: Text(
+                        '${day.day}',
+                        style: const TextStyle(color: Colors.black),
+                      ),
+                    );
+                  },
+                ),
+                calendarStyle: CalendarStyle(
+                  todayDecoration: const BoxDecoration(
+                    color: Colors.black,
+                    shape: BoxShape.circle,
                   ),
-                )
-              else
-                ..._items.map(_buildItemCard),
-            ],
-          ),
+                  selectedDecoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    shape: BoxShape.circle,
+                  ),
+                  weekendTextStyle: const TextStyle(color: Colors.black),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '直近30日の着用ログ',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView(
+                  padding: const EdgeInsets.all(8),
+                  children: [
+                    if (_error != null) ...[
+                      Text(
+                        _error!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (_items.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: Center(
+                          child: Text(
+                            _busy ? '読み込み中…' : 'ログがありません',
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                        ),
+                      )
+                    else
+                      ..._items.map(_buildItemCard),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -150,3 +228,4 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 }
+
