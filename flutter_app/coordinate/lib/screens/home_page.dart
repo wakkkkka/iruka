@@ -157,17 +157,32 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildClosetHome() {
-    // カテゴリーごとにグループ化
-    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    // カテゴリーごとにグループ化（カテゴリ順を固定するため、キーは英語タグで持つ）
+    const categoryOrder = <String, int>{
+      'tops': 0,
+      'bottoms': 1,
+      'outer': 2,
+      'dress': 3,
+      'shoes': 4,
+    };
+
+    final Map<String, List<Map<String, dynamic>>> groupedByKey = {};
     for (final item in _closetItems) {
-      final category = (item['category'] is String)
+      final categoryKey = (item['category'] is String)
           ? (item['category'] as String).trim()
-          : 'その他';
-      final label = category.isNotEmpty
-          ? ClothesOptions.labelFor(category, ClothesOptions.categoryLabels)
-          : 'その他';
-      grouped.putIfAbsent(label, () => []).add(item);
+          : '';
+      final key = categoryKey.isNotEmpty ? categoryKey : 'other';
+      groupedByKey.putIfAbsent(key, () => []).add(item);
     }
+
+    final sortedCategoryKeys = groupedByKey.keys.toList()
+      ..sort((a, b) {
+        final aOrder = categoryOrder[a] ?? 999;
+        final bOrder = categoryOrder[b] ?? 999;
+        final primary = aOrder.compareTo(bOrder);
+        if (primary != 0) return primary;
+        return a.compareTo(b);
+      });
 
     return SafeArea(
       child: Padding(
@@ -194,11 +209,19 @@ class _HomePageState extends State<HomePage> {
               child: RefreshIndicator(
                 onRefresh: _refreshCloset,
                 child: ListView(
-                  children: grouped.entries.map((entry) {
-                    final categoryLabel = entry.key;
-                    final items = entry.value;
+                  children: sortedCategoryKeys.map((categoryKey) {
+                    final categoryLabel = categoryKey == 'other'
+                        ? 'その他'
+                        : ClothesOptions.labelFor(
+                            categoryKey,
+                            ClothesOptions.categoryLabels,
+                          );
+                    final items = groupedByKey[categoryKey] ?? const [];
                     return ExpansionTile(
-                      title: Text(categoryLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      title: Text(
+                        categoryLabel,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       children: items.map((item) {
                         final clothesId = (item['clothesId'] is String)
                             ? (item['clothesId'] as String).trim()
@@ -206,9 +229,7 @@ class _HomePageState extends State<HomePage> {
                         final name = (item['name'] is String)
                             ? (item['name'] as String).trim()
                             : '';
-                        final title = name.isNotEmpty
-                            ? name
-                            : categoryLabel;
+                        final title = name.isNotEmpty ? name : categoryLabel;
                         final subtitle = _buildSubtitle(item);
                         final imageUrl = item['imageUrl'];
                         return Card(
@@ -219,7 +240,9 @@ class _HomePageState extends State<HomePage> {
                                     final changed = await Navigator.push<bool>(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => ClothesDetailPage(clothesId: clothesId),
+                                        builder: (context) => ClothesDetailPage(
+                                          clothesId: clothesId,
+                                        ),
                                       ),
                                     );
                                     if (!mounted) return;
@@ -232,7 +255,8 @@ class _HomePageState extends State<HomePage> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (imageUrl is String && imageUrl.trim().isNotEmpty)
+                                  if (imageUrl is String &&
+                                      imageUrl.trim().isNotEmpty)
                                     _buildThumbnail(imageUrl)
                                   else
                                     Container(
@@ -244,7 +268,8 @@ class _HomePageState extends State<HomePage> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           title,
