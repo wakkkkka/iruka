@@ -3,7 +3,6 @@ import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'camera_page.dart';
 
 class ClothesCameraPage extends StatefulWidget {
   const ClothesCameraPage({super.key});
@@ -51,9 +50,7 @@ class _ClothesCameraPageState extends State<ClothesCameraPage> {
 
   // 撮影処理
   Future<void> _takePicture() async {
-    if (!_isCameraInitialized || _cameraController!.value.isTakingPicture) {
-      return;
-    }
+    if (!_isCameraInitialized || _cameraController!.value.isTakingPicture) return;
     try {
       final XFile photo = await _cameraController!.takePicture();
       setState(() => _imageFile = photo);
@@ -163,35 +160,9 @@ class _ClothesCameraPageState extends State<ClothesCameraPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ElevatedButton(
-                  onPressed: () async {
-                    final file = _imageFile;
-                    if (file == null) return;
-
-                    try {
-                      final bytes = await file.readAsBytes();
-                      if (!mounted) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CameraPage(
-                            purpose: CameraPagePurpose.registerItem,
-                            initialImageFile: file,
-                            initialImageBytes: bytes,
-                          ),
-                        ),
-                      );
-                    } catch (e) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('画像の読み込みに失敗しました: $e')),
-                      );
-                    }
-                  },
+                  onPressed: () => print("画像確定: ${_imageFile!.path}"),
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 12,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                   ),
                   child: const Text("この写真で服を登録する"),
                 ),
@@ -241,7 +212,10 @@ class _ClothesCameraPageState extends State<ClothesCameraPage> {
           icon: Icon(icon, size: 35, color: Colors.white),
           onPressed: onPressed,
         ),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.white)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.white),
+        ),
       ],
     );
   }
