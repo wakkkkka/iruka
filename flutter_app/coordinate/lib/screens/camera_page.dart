@@ -1,7 +1,8 @@
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
@@ -11,9 +12,16 @@ import '../services/selfie_api_service.dart';
 enum CameraPagePurpose { registerItem, selfie }
 
 class CameraPage extends StatefulWidget {
-  const CameraPage({super.key, required this.purpose});
+  const CameraPage({
+    super.key,
+    required this.purpose,
+    this.initialImageFile,
+    this.initialImageBytes,
+  });
 
   final CameraPagePurpose purpose;
+  final XFile? initialImageFile;
+  final Uint8List? initialImageBytes;
 
   @override
   State<CameraPage> createState() => _CameraPageState();
@@ -25,6 +33,32 @@ class _CameraPageState extends State<CameraPage> {
   final ImagePicker _picker = ImagePicker();
   final ClothesApiService _clothesApiService = ClothesApiService();
   final SelfieApiService _selfieApiService = SelfieApiService();
+
+  @override
+  void initState() {
+    super.initState();
+
+    final initialFile = widget.initialImageFile;
+    final initialBytes = widget.initialImageBytes;
+    if (initialFile != null && initialBytes != null) {
+      _imageFile = initialFile;
+      _imageBytes = initialBytes;
+    } else if (initialFile != null) {
+      _imageFile = initialFile;
+      // Load bytes lazily.
+      Future.microtask(() async {
+        try {
+          final bytes = await initialFile.readAsBytes();
+          if (!mounted) return;
+          setState(() {
+            _imageBytes = bytes;
+          });
+        } catch (_) {
+          // Ignore; UI will ask user to re-select.
+        }
+      });
+    }
+  }
 
   bool _isSubmitting = false;
 
@@ -81,7 +115,6 @@ class _CameraPageState extends State<CameraPage> {
         });
       }
     } catch (e) {
-
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
