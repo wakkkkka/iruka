@@ -3,6 +3,7 @@ import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'clothes_detail_page.dart';
 
 class ClothesCameraPage extends StatefulWidget {
   const ClothesCameraPage({super.key});
@@ -160,7 +161,14 @@ class _ClothesCameraPageState extends State<ClothesCameraPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ElevatedButton(
-                  onPressed: () => print("画像確定: ${_imageFile!.path}"),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ClothesDetailPage(imagePath: _imageFile!.path),
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                   ),
