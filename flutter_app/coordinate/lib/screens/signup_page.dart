@@ -21,6 +21,64 @@ class _SignupPageState extends State<SignupPage> {
   String? _successMessage;
   bool _needsConfirmation = false;
 
+  void _showSnackBar(String message, {required bool isError}) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: isError
+              ? Theme.of(context).colorScheme.error
+              : null,
+        ),
+      );
+  }
+
+  Widget _buildBackground(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            cs.primary.withValues(alpha: 0.14),
+            cs.secondary.withValues(alpha: 0.10),
+            cs.tertiary.withValues(alpha: 0.08),
+          ],
+        ),
+      ),
+      child: const SizedBox.expand(),
+    );
+  }
+
+  InputDecoration _inputDecoration(
+    BuildContext context, {
+    required String label,
+    IconData? leadingIcon,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: cs.outlineVariant),
+    );
+
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: leadingIcon == null ? null : Icon(leadingIcon),
+      border: border,
+      enabledBorder: border,
+      focusedBorder: border.copyWith(
+        borderSide: BorderSide(color: cs.primary, width: 1.4),
+      ),
+      filled: true,
+      fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.65),
+    );
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -31,6 +89,8 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   Future<void> _handleSignUp() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+
     // バリデーション
     if (_emailController.text.isEmpty ||
         _passwordController.text.isEmpty ||
@@ -38,6 +98,7 @@ class _SignupPageState extends State<SignupPage> {
       setState(() {
         _errorMessage = 'すべての項目を入力してください。';
       });
+      _showSnackBar(_errorMessage!, isError: true);
       return;
     }
 
@@ -45,6 +106,7 @@ class _SignupPageState extends State<SignupPage> {
       setState(() {
         _errorMessage = 'パスワードが一致しません。';
       });
+      _showSnackBar(_errorMessage!, isError: true);
       return;
     }
 
@@ -52,6 +114,7 @@ class _SignupPageState extends State<SignupPage> {
       setState(() {
         _errorMessage = 'パスワードは8文字以上である必要があります。';
       });
+      _showSnackBar(_errorMessage!, isError: true);
       return;
     }
 
@@ -75,22 +138,32 @@ class _SignupPageState extends State<SignupPage> {
             _errorMessage = null;
           });
 
+          _showSnackBar(_successMessage!, isError: false);
+
           Future.delayed(const Duration(seconds: 2), () {
             if (mounted) {
               Navigator.pop(context);
             }
           });
         } else {
+          final destination =
+              result.nextStep?.codeDeliveryDetails?.destination;
           setState(() {
             _needsConfirmation = true;
-            _successMessage = '確認コードをメールに送信しました。コードを入力して登録を完了してください。';
+            _successMessage = destination == null
+                ? '確認コードをメールに送信しました。コードを入力して登録を完了してください。'
+                : '確認コードを送信しました（宛先: $destination）。コードを入力して登録を完了してください。';
             _errorMessage = null;
           });
+
+          _showSnackBar(_successMessage!, isError: false);
         }
       } else {
         setState(() {
           _errorMessage = result.errorMessage ?? '登録に失敗しました。もう一度お試しください。';
         });
+
+        _showSnackBar(_errorMessage!, isError: true);
       }
       setState(() {
         _isLoading = false;
@@ -99,10 +172,13 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   Future<void> _handleConfirmSignUp() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+
     if (_confirmationCodeController.text.trim().isEmpty) {
       setState(() {
         _errorMessage = '確認コードを入力してください。';
       });
+      _showSnackBar(_errorMessage!, isError: true);
       return;
     }
 
@@ -125,6 +201,8 @@ class _SignupPageState extends State<SignupPage> {
         _needsConfirmation = false;
       });
 
+      _showSnackBar(_successMessage!, isError: false);
+
       Future.delayed(const Duration(seconds: 1), () {
         if (mounted) {
           Navigator.pop(context);
@@ -134,6 +212,49 @@ class _SignupPageState extends State<SignupPage> {
       setState(() {
         _errorMessage = result.errorMessage ?? '確認に失敗しました。';
       });
+
+      _showSnackBar(_errorMessage!, isError: true);
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _handleResendCode() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    if (_emailController.text.trim().isEmpty) {
+      setState(() {
+        _errorMessage = 'メールアドレスを入力してください。';
+      });
+      _showSnackBar(_errorMessage!, isError: true);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    final result = await _authService.resendSignUpCode(_emailController.text);
+
+    if (!mounted) return;
+
+    if (result.success) {
+      final destination = result.destination;
+      setState(() {
+        _successMessage = destination == null
+            ? '確認コードを再送しました。'
+            : '確認コードを再送しました（宛先: $destination）。';
+      });
+      _showSnackBar(_successMessage!, isError: false);
+    } else {
+      setState(() {
+        _errorMessage = result.errorMessage ?? '確認コードの再送に失敗しました。';
+      });
+      _showSnackBar(_errorMessage!, isError: true);
     }
 
     setState(() {
@@ -143,117 +264,333 @@ class _SignupPageState extends State<SignupPage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('新規登録'), centerTitle: true),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'AIクローゼット',
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 40),
-                TextField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    labelText: 'メールアドレス',
-                    border: OutlineInputBorder(),
-                  ),
-                  enabled: !_isLoading,
-                  keyboardType: TextInputType.emailAddress,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'パスワード（8文字以上）',
-                    border: OutlineInputBorder(),
-                  ),
-                  enabled: !_isLoading,
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _confirmPasswordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'パスワード確認',
-                    border: OutlineInputBorder(),
-                  ),
-                  enabled: !_isLoading,
-                ),
-                if (_needsConfirmation) ...[
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _confirmationCodeController,
-                    decoration: const InputDecoration(
-                      labelText: '確認コード',
-                      border: OutlineInputBorder(),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: const Text('新規登録'),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Stack(
+        children: [
+          _buildBackground(context),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(top: kToolbarHeight + 8),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final keyboardBottom = MediaQuery.viewInsetsOf(
+                    context,
+                  ).bottom;
+
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.only(bottom: keyboardBottom),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 460),
+                            child: TweenAnimationBuilder<double>(
+                              duration: const Duration(milliseconds: 520),
+                              curve: Curves.easeOutCubic,
+                              tween: Tween<double>(begin: 0, end: 1),
+                              builder: (context, t, child) {
+                                final dy = (1 - t) * 14;
+                                return Opacity(
+                                  opacity: t,
+                                  child: Transform.translate(
+                                    offset: Offset(0, dy),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: Card(
+                                elevation: 0,
+                                color: cs.surface.withValues(alpha: 0.92),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  side: BorderSide(color: cs.outlineVariant),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    22,
+                                    20,
+                                    18,
+                                  ),
+                                  child: AutofillGroup(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(
+                                              width: 44,
+                                              height: 44,
+                                              decoration: BoxDecoration(
+                                                color: cs.secondaryContainer,
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
+                                              ),
+                                              child: Icon(
+                                                Icons.person_add_alt_1,
+                                                color: cs.onSecondaryContainer,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text(
+                                                    'AIクローゼット',
+                                                    style: TextStyle(
+                                                      fontSize: 22,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    _needsConfirmation
+                                                        ? 'メールの確認コードを入力して完了'
+                                                        : '新しいアカウントを作成',
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 18),
+                                        TextField(
+                                          controller: _emailController,
+                                          decoration: _inputDecoration(
+                                            context,
+                                            label: 'メールアドレス',
+                                            leadingIcon: Icons.alternate_email,
+                                          ),
+                                          enabled: !_isLoading,
+                                          keyboardType:
+                                              TextInputType.emailAddress,
+                                          autocorrect: false,
+                                          enableSuggestions: false,
+                                          autofillHints: const [
+                                            AutofillHints.email,
+                                          ],
+                                        ),
+                                        const SizedBox(height: 14),
+                                        TextField(
+                                          controller: _passwordController,
+                                          obscureText: true,
+                                          decoration: _inputDecoration(
+                                            context,
+                                            label: 'パスワード（8文字以上）',
+                                            leadingIcon: Icons.lock_outline,
+                                          ),
+                                          enabled: !_isLoading,
+                                          autofillHints: const [
+                                            AutofillHints.newPassword,
+                                          ],
+                                        ),
+                                        const SizedBox(height: 14),
+                                        TextField(
+                                          controller:
+                                              _confirmPasswordController,
+                                          obscureText: true,
+                                          decoration: _inputDecoration(
+                                            context,
+                                            label: 'パスワード確認',
+                                            leadingIcon: Icons.lock_reset,
+                                          ),
+                                          enabled: !_isLoading,
+                                          autofillHints: const [
+                                            AutofillHints.newPassword,
+                                          ],
+                                        ),
+                                        AnimatedSize(
+                                          duration: const Duration(
+                                            milliseconds: 220,
+                                          ),
+                                          curve: Curves.easeOut,
+                                          child: _needsConfirmation
+                                              ? Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        top: 14,
+                                                      ),
+                                                  child: TextField(
+                                                    controller:
+                                                        _confirmationCodeController,
+                                                    decoration: _inputDecoration(
+                                                      context,
+                                                      label: '確認コード',
+                                                      leadingIcon: Icons
+                                                          .verified_outlined,
+                                                    ),
+                                                    enabled: !_isLoading,
+                                                    keyboardType:
+                                                        TextInputType.number,
+                                                    autofillHints: const [
+                                                      AutofillHints.oneTimeCode,
+                                                    ],
+                                                  ),
+                                                )
+                                              : const SizedBox.shrink(),
+                                        ),
+                                        if (_needsConfirmation)
+                                          Align(
+                                            alignment: Alignment.centerRight,
+                                            child: TextButton(
+                                              onPressed: _isLoading
+                                                  ? null
+                                                  : _handleResendCode,
+                                              child: const Text('確認コードを再送'),
+                                            ),
+                                          ),
+                                        AnimatedSwitcher(
+                                          duration: const Duration(
+                                            milliseconds: 180,
+                                          ),
+                                          child:
+                                              (_errorMessage == null &&
+                                                  _successMessage == null)
+                                              ? const SizedBox(height: 16)
+                                              : Padding(
+                                                  key: ValueKey(
+                                                    '${_errorMessage ?? ''}/${_successMessage ?? ''}',
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        top: 12,
+                                                      ),
+                                                  child: Row(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Icon(
+                                                        _errorMessage != null
+                                                            ? Icons
+                                                                  .error_outline
+                                                            : Icons
+                                                                  .check_circle_outline,
+                                                        size: 18,
+                                                        color:
+                                                            _errorMessage !=
+                                                                null
+                                                            ? cs.error
+                                                            : cs.primary,
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Expanded(
+                                                        child: Text(
+                                                          _errorMessage ??
+                                                              _successMessage ??
+                                                              '',
+                                                          style: TextStyle(
+                                                            color:
+                                                                _errorMessage !=
+                                                                    null
+                                                                ? cs.error
+                                                                : cs.primary,
+                                                            fontSize: 12,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        SizedBox(
+                                          height: 48,
+                                          child: FilledButton(
+                                            onPressed: _isLoading
+                                                ? null
+                                                : (_needsConfirmation
+                                                      ? _handleConfirmSignUp
+                                                      : _handleSignUp),
+                                            child: AnimatedSwitcher(
+                                              duration: const Duration(
+                                                milliseconds: 160,
+                                              ),
+                                              child: _isLoading
+                                                  ? const SizedBox(
+                                                      key: ValueKey('loading'),
+                                                      height: 20,
+                                                      width: 20,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                          ),
+                                                    )
+                                                  : Text(
+                                                      _needsConfirmation
+                                                          ? '確認する'
+                                                          : '新規登録',
+                                                      key: const ValueKey(
+                                                        'label',
+                                                      ),
+                                                    ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Wrap(
+                                          alignment: WrapAlignment.center,
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
+                                          children: [
+                                            Text(
+                                              '既にアカウントをお持ちですか？',
+                                              style: TextStyle(
+                                                color: cs.onSurface.withValues(
+                                                  alpha: 0.75,
+                                                ),
+                                              ),
+                                            ),
+                                            TextButton(
+                                              onPressed: _isLoading
+                                                  ? null
+                                                  : () {
+                                                      Navigator.pop(context);
+                                                    },
+                                              child: const Text('ログインする'),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                    enabled: !_isLoading,
-                    keyboardType: TextInputType.number,
-                  ),
-                ],
-                if (_errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12.0),
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red, fontSize: 14),
-                    ),
-                  ),
-                if (_successMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12.0),
-                    child: Text(
-                      _successMessage!,
-                      style: const TextStyle(color: Colors.green, fontSize: 14),
-                    ),
-                  ),
-                const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading
-                        ? null
-                        : (_needsConfirmation
-                              ? _handleConfirmSignUp
-                              : _handleSignUp),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_needsConfirmation ? '確認する' : '新規登録'),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    const Text('既にアカウントをお持ちですか？'),
-                    TextButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () {
-                              Navigator.pop(context);
-                            },
-                      child: const Text('ログインする'),
-                    ),
-                  ],
-                ),
-              ],
+                  );
+                },
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
