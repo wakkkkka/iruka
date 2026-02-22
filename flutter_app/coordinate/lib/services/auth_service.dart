@@ -5,6 +5,26 @@ class AuthService {
     return email.trim();
   }
 
+  Future<({bool success, String? destination, String? errorMessage})>
+  resendSignUpCode(String email) async {
+    try {
+      final normalizedEmail = _normalizeEmail(email);
+      final result = await Amplify.Auth.resendSignUpCode(
+        username: normalizedEmail,
+      );
+
+      final destination = result.codeDeliveryDetails.destination;
+      safePrint('resendSignUpCode: destination=$destination');
+      return (success: true, destination: destination, errorMessage: null);
+    } on AuthException catch (e) {
+      safePrint('resendSignUpCode エラー: ${e.message}');
+      return (success: false, destination: null, errorMessage: e.message);
+    } catch (e) {
+      safePrint('resendSignUpCode 予期しないエラー: $e');
+      return (success: false, destination: null, errorMessage: e.toString());
+    }
+  }
+
   Future<bool> isSignedIn() async {
     try {
       final session = await Amplify.Auth.fetchAuthSession();
