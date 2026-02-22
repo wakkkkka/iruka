@@ -181,43 +181,19 @@ class AnalyticsDashboard extends StatelessWidget {
 
   Widget _buildHeader() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF324B5C),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.bar_chart, color: Colors.white),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'CLOSET OS / ANALYTICS',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -1),
-            ),
-          ],
-        ),
         Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.shade200),
+            color: const Color(0xFF324B5C),
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(color: Color(0xFF50C878), shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 8),
-              const Text('LIVE SYSTEM', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900)),
-            ],
-          ),
+          child: const Icon(Icons.bar_chart, color: Colors.white),
+        ),
+        const SizedBox(width: 12),
+        const Text(
+          'CLOSET OS / ANALYTICS',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -1),
         ),
       ],
     );
