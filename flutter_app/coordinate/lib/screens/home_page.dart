@@ -360,7 +360,7 @@ class _HomePageState extends State<HomePage> {
     final pages = <Widget>[
       const CalendarPage(),
       _buildClosetHome(),
-      const StatisticsPage(),
+      AnalyticsDashboard(),
       const SettingsPage(),
     ];
 

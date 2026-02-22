@@ -42,7 +42,7 @@ class _CalendarStatisticsTabPageState extends State<CalendarStatisticsTabPage> w
         controller: _tabController,
         children: [
           CalendarPage(),
-          StatisticsPage(),
+          AnalyticsDashboard(),
         ],
       ),
     );
