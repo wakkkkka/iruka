@@ -53,31 +53,45 @@ class _CalendarPageState extends State<CalendarPage> {
       }
     DateTime? _selectedDay;
     List<Map<String, dynamic>> _selectedDayLogs = const [];
-    final List<Map<String, dynamic>> _items = [];
+    List<Map<String, dynamic>> _items = [];
+    bool _isLoading = false;
     // ...existing code...
 
   @override
   void initState() {
     super.initState();
     // ...existing code...
+    _fetchWearLogs();
   }
 
-  String _isoDateLocal(DateTime dt) {
-    final y = dt.year.toString().padLeft(4, '0');
-    final m = dt.month.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    return '$y-$m-$d';
+  void _fetchWearLogs() async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final logs = await SelfieApiService().listWearLogs();
+      setState(() {
+        _items = logs;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      // エラー時の処理（必要ならSnackBar等で通知）
+    }
   }
-
-  // ...existing code...
 
   @override
   Widget build(BuildContext context) {
+    // ...existing code...
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(title: const Text('カレンダー')),
       body: SafeArea(
-        child: Column(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
           children: [
             Padding(
               padding: const EdgeInsets.only(top: 8.0),
@@ -96,30 +110,44 @@ class _CalendarPageState extends State<CalendarPage> {
                 ),
                 calendarBuilders: CalendarBuilders(
                   headerTitleBuilder: (context, day) {
+                    final year = DateFormat.y().format(day);
                     final monthNumber = DateFormat.M().format(day);
                     final monthName = DateFormat.MMMM().format(day);
                     return Padding(
-                      padding: const EdgeInsets.only(left: 16.0, top: 20, bottom: 10),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
+                      padding: const EdgeInsets.only(left: 16.0, top: 10, bottom: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            monthNumber,
+                            year,
                             style: const TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            monthName,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w300,
-                              color: Colors.grey[600],
-                            ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                monthNumber,
+                                style: const TextStyle(
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                monthName,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w300,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -213,6 +241,10 @@ class _CalendarPageState extends State<CalendarPage> {
       ),
     );
   }
+
+  // ...existing code...
+
+  // ...existing code...
 
   // ...existing code...
 // ここに何も書かない（ClothesDetailMiniは外部ファイルからimport）
