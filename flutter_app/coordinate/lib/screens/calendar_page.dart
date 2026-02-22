@@ -76,7 +76,10 @@ class _CalendarPageState extends State<CalendarPage> {
       final date = _parseLogDate(log);
       if (date == null) continue;
       final key = _dayKey(date);
-      final list = _wearLogsByDay.putIfAbsent(key, () => <Map<String, dynamic>>[]);
+      final list = _wearLogsByDay.putIfAbsent(
+        key,
+        () => <Map<String, dynamic>>[],
+      );
       list.add(log);
     }
   }
@@ -195,17 +198,10 @@ class _CalendarPageState extends State<CalendarPage> {
             padding: const EdgeInsets.only(bottom: 10),
             child: Row(
               children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  color: Colors.black12,
-                ),
+                Container(width: 56, height: 56, color: Colors.black12),
                 const SizedBox(width: 10),
                 const Expanded(
-                  child: Text(
-                    '読み込み中...',
-                    style: TextStyle(fontSize: 13),
-                  ),
+                  child: Text('読み込み中...', style: TextStyle(fontSize: 13)),
                 ),
               ],
             ),
@@ -229,7 +225,7 @@ class _CalendarPageState extends State<CalendarPage> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '取得に失敗しました（ID: $clothesId）',
+                    '削除されたアイテム（削除済み）',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
@@ -308,12 +304,7 @@ class _CalendarPageState extends State<CalendarPage> {
         ),
         child: Stack(
           alignment: Alignment.center,
-          children: [
-            Text(
-              '${day.day}',
-              style: TextStyle(color: textColor),
-            ),
-          ],
+          children: [Text('${day.day}', style: TextStyle(color: textColor))],
         ),
       ),
     );
@@ -413,7 +404,8 @@ class _CalendarPageState extends State<CalendarPage> {
                                   ),
                                 ),
                                 Row(
-                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.baseline,
                                   textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     Text(

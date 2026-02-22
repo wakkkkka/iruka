@@ -19,6 +19,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final ClothesApiService _clothesApiService = ClothesApiService();
 
+  bool _demoPopupHandled = false;
+
   bool _closetBusy = false;
   String? _closetError;
   List<Map<String, dynamic>> _closetItems = const [];
@@ -28,6 +30,45 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _refreshCloset();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_demoPopupHandled) return;
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    final shouldShowDemoPopup = args == true;
+    if (!shouldShowDemoPopup) return;
+
+    _demoPopupHandled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text(
+              '今日のコーディネート',
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontSize: 16),
+            ),
+            content: const Text('今日のコーディネートがまだ登録されていないみたい。自撮りして記録しよう！'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+    });
   }
 
   Future<void> _runClosetTask(Future<void> Function() task) async {
