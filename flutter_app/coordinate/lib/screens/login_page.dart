@@ -69,7 +69,7 @@ class _LoginPageState extends State<LoginPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacementNamed(context, '/home', arguments: true);
       }
     });
   }
@@ -100,7 +100,7 @@ class _LoginPageState extends State<LoginPage> {
     );
 
     if (result.isSignedIn) {
-      Navigator.pushReplacementNamed(context, '/home');
+      Navigator.pushReplacementNamed(context, '/home', arguments: true);
       return;
     }
 
