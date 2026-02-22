@@ -157,6 +157,33 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildClosetHome() {
+    // カテゴリーごとにグループ化（カテゴリ順を固定するため、キーは英語タグで持つ）
+    const categoryOrder = <String, int>{
+      'tops': 0,
+      'bottoms': 1,
+      'outer': 2,
+      'dress': 3,
+      'shoes': 4,
+    };
+
+    final Map<String, List<Map<String, dynamic>>> groupedByKey = {};
+    for (final item in _closetItems) {
+      final categoryKey = (item['category'] is String)
+          ? (item['category'] as String).trim()
+          : '';
+      final key = categoryKey.isNotEmpty ? categoryKey : 'other';
+      groupedByKey.putIfAbsent(key, () => []).add(item);
+    }
+
+    final sortedCategoryKeys = groupedByKey.keys.toList()
+      ..sort((a, b) {
+        final aOrder = categoryOrder[a] ?? 999;
+        final bOrder = categoryOrder[b] ?? 999;
+        final primary = aOrder.compareTo(bOrder);
+        if (primary != 0) return primary;
+        return a.compareTo(b);
+      });
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -181,90 +208,92 @@ class _HomePageState extends State<HomePage> {
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _refreshCloset,
-                child: ListView.separated(
-                  itemCount: _closetItems.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final item = _closetItems[index];
-                    final clothesId = (item['clothesId'] is String)
-                        ? (item['clothesId'] as String).trim()
-                        : '';
-                    final category = (item['category'] is String)
-                        ? (item['category'] as String).trim()
-                        : '';
-                    final name = (item['name'] is String)
-                        ? (item['name'] as String).trim()
-                        : '';
-                    final title = name.isNotEmpty
-                        ? name
-                        : (category.isNotEmpty
-                              ? ClothesOptions.labelFor(
-                                  category,
-                                  ClothesOptions.categoryLabels,
-                                )
-                              : 'アイテム');
-                    final subtitle = _buildSubtitle(item);
-                    final imageUrl = item['imageUrl'];
-
-                    return Card(
-                      child: InkWell(
-                        onTap: clothesId.isEmpty
-                            ? null
-                            : () async {
-                                final changed = await Navigator.push<bool>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        ClothesDetailPage(clothesId: clothesId),
-                                  ),
-                                );
-                                if (!mounted) return;
-                                if (changed == true) {
-                                  await _refreshCloset();
-                                }
-                              },
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (imageUrl is String &&
-                                  imageUrl.trim().isNotEmpty)
-                                _buildThumbnail(imageUrl)
-                              else
-                                Container(
-                                  width: 72,
-                                  height: 72,
-                                  color: Colors.black12,
-                                  child: const Icon(Icons.image),
-                                ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      title,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      subtitle,
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                child: ListView(
+                  children: sortedCategoryKeys.map((categoryKey) {
+                    final categoryLabel = categoryKey == 'other'
+                        ? 'その他'
+                        : ClothesOptions.labelFor(
+                            categoryKey,
+                            ClothesOptions.categoryLabels,
+                          );
+                    final items = groupedByKey[categoryKey] ?? const [];
+                    return ExpansionTile(
+                      title: Text(
+                        categoryLabel,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
+                      children: items.map((item) {
+                        final clothesId = (item['clothesId'] is String)
+                            ? (item['clothesId'] as String).trim()
+                            : '';
+                        final name = (item['name'] is String)
+                            ? (item['name'] as String).trim()
+                            : '';
+                        final title = name.isNotEmpty ? name : categoryLabel;
+                        final subtitle = _buildSubtitle(item);
+                        final imageUrl = item['imageUrl'];
+                        return Card(
+                          child: InkWell(
+                            onTap: clothesId.isEmpty
+                                ? null
+                                : () async {
+                                    final changed = await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ClothesDetailPage(
+                                          clothesId: clothesId,
+                                        ),
+                                      ),
+                                    );
+                                    if (!mounted) return;
+                                    if (changed == true) {
+                                      await _refreshCloset();
+                                    }
+                                  },
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (imageUrl is String &&
+                                      imageUrl.trim().isNotEmpty)
+                                    _buildThumbnail(imageUrl)
+                                  else
+                                    Container(
+                                      width: 72,
+                                      height: 72,
+                                      color: Colors.black12,
+                                      child: const Icon(Icons.image),
+                                    ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          title,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          subtitle,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     );
-                  },
+                  }).toList(),
                 ),
               ),
             ),
