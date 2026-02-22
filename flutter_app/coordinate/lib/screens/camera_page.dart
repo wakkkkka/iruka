@@ -768,6 +768,8 @@ class _CameraPageState extends State<CameraPage> {
         : null;
     final candidatesRaw = block['candidates'];
 
+    final needsRegister = block['needsRegister'] == true;
+
     final candidates = <Map<String, dynamic>>[];
     if (candidatesRaw is List) {
       for (final e in candidatesRaw) {
@@ -803,6 +805,13 @@ class _CameraPageState extends State<CameraPage> {
           style: const TextStyle(fontSize: 12, color: Colors.black87),
         ),
         const SizedBox(height: 8),
+        if (needsRegister) ...[
+          const Text(
+            '候補が少ないため、新規登録を推奨します',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+          const SizedBox(height: 8),
+        ],
         if (candidates.isEmpty)
           const Text(
             '候補がありません',
