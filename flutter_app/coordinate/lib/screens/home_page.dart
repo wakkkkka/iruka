@@ -49,7 +49,15 @@ class _HomePageState extends State<HomePage> {
         context: context,
         builder: (context) {
           return AlertDialog(
-            title: const Text('今日のコーディネート'),
+            title: Text(
+              '今日のコーディネート',
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontSize: 16),
+            ),
             content: const Text('今日のコーディネートがまだ登録されていないみたい。自撮りして記録しよう！'),
             actions: [
               TextButton(
