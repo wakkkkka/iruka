@@ -17,7 +17,7 @@
         "coordinateb126374f": {},
         "coordinatece970dec": {
           "deploymentBucketName": "amplify-coordinate-dev-c138b-deployment",
-          "s3Key": "amplify-builds/coordinatece970dec-546c6d5448644636424d-build.zip"
+          "s3Key": "amplify-builds/coordinatece970dec-7a55634659432b524373-build.zip"
         }
       },
       "auth": {

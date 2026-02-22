@@ -38,13 +38,16 @@ dependencies:
   image_picker: ^0.8.7+4
   camera: ^0.11.0+2
   path_provider: ^2.1.2
+  intl: ^0.20.2
   path: ^1.9.0
   shared_preferences: ^2.5.4
   amplify_flutter: ^2.0.0
   amplify_auth_cognito: ^2.0.0
   amplify_authenticator: ^2.0.0 # UIを爆速で作るための公式ライブラリ
+
   amplify_api: ^2.0.0
   amplify_storage_s3: ^2.0.0
+  table_calendar: ^3.2.0
 
 
 dev_dependencies:
