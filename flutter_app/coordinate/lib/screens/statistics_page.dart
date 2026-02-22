@@ -418,27 +418,6 @@ class AnalyticsDashboard extends StatelessWidget {
     );
   }
 
-  Widget _buildColorBar(String label, double value, List<Color> colors) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-            Text('${(value * 100).toInt()}%', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 16,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            gradient: LinearGradient(colors: colors),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildFooter() {
     return const Center(
